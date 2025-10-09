@@ -368,6 +368,7 @@ namespace XiboClient
             settings.CefCommandLineArgs["autoplay-policy"] = "no-user-gesture-required";
             settings.CefCommandLineArgs["disable-pinch"] = "1";
             settings.CefCommandLineArgs["disable-usb-keyboard-detect"] = "1";
+            settings.CefCommandLineArgs["enable-media-stream"] = "1";
 
             if (!string.IsNullOrEmpty(ApplicationSettings.Default.CefLocale))
             {
