@@ -116,7 +116,7 @@ namespace XiboClient.XmdsAgents
                                     {
                                         metric = item.Key,
                                         value = item.Value.ToString(),
-                                        ttl = ApplicationSettings.Default.CollectInterval
+                                        ttl = (ApplicationSettings.Default.CollectInterval + 60) // Add 60s to the collection interval so that we account for any delays getting the next update
                                     });
                                 }
 
