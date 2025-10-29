@@ -117,6 +117,14 @@ namespace XiboClient
             {
                 InitializeScreenSaver();
             }
+            else
+            {
+                // Act like a Kiosk and aggressively ensure we are topmost
+                DispatcherTimer kioskTimer = new DispatcherTimer();
+                kioskTimer.Interval = TimeSpan.FromSeconds(5);
+                kioskTimer.Tick += KioskTimer_Tick;
+                kioskTimer.Start();
+            }
 
             InitializeXibo();
         }
@@ -1441,6 +1449,30 @@ namespace XiboClient
         }
 
         #endregion
+
+        private void Window_Activated(object sender, EventArgs e)
+        {
+            LogMessage.Audit("MainWindow", "Window_Activated", "Activated");
+
+#if !DEBUG
+            if (!_screenSaver)
+            {
+                this.Topmost = false;
+                this.Topmost = true;
+            }
+#endif
+        }
+
+        private void KioskTimer_Tick(object sender, EventArgs e)
+        {
+#if !DEBUG
+            if (!_screenSaver)
+            {
+                this.Topmost = false;
+                this.Topmost = true;
+            }
+#endif
+        }
     }
 
 
