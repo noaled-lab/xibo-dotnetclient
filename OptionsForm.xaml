@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:XiboClient"
         xmlns:Properties="clr-namespace:XiboClient.Properties" x:Class="XiboClient.OptionsForm"
         mc:Ignorable="d"
-        Title="Player Options" Height="450" Width="800" ResizeMode="CanMinimize">
+        Title="NOA Player Options" Height="450" Width="800" ResizeMode="CanMinimize">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="185*"/>

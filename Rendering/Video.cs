@@ -311,6 +311,34 @@ namespace XiboClient.Rendering
                 this.mediaElement.Stretch = System.Windows.Media.Stretch.Fill;
             }
 
+            // Apply opacity if specified (0-100, default 100)
+            string opacityStr = Options.Dictionary.Get("opacity", "100");
+            if (double.TryParse(opacityStr, out double opacityValue))
+            {
+                this.mediaElement.Opacity = Math.Max(0, Math.Min(1, opacityValue / 100.0));
+            }
+
+            // Apply brightness if specified (50-200, default 100)
+            // Note: Video brightness control is limited in WPF MediaElement
+            // Full brightness control would require more complex shader effects
+            string brightnessStr = Options.Dictionary.Get("brightness", "100");
+            if (double.TryParse(brightnessStr, out double brightnessValue))
+            {
+                // Convert brightness (50-200) to multiplier (0.5-2.0)
+                double brightnessMultiplier = brightnessValue / 100.0;
+                
+                // For video, brightness adjustment is more complex
+                // We can only adjust opacity as a workaround for darker videos
+                // Full brightness control requires pixel shader effects which are complex
+                if (brightnessMultiplier < 1.0)
+                {
+                    // Darker: reduce opacity slightly
+                    this.mediaElement.Opacity *= (0.5 + brightnessMultiplier * 0.5);
+                }
+                // Note: Making videos brighter requires pixel shader effects
+                // This is a basic implementation
+            }
+
             // Events
             // MediaOpened is called after we've called Play()
             this.mediaElement.MediaOpened += MediaElement_MediaOpened;
