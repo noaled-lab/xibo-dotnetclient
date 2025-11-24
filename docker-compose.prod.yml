@@ -1,0 +1,53 @@
+version: "3"
+
+services:
+  db:
+    image: mysql:8.0
+    volumes:
+      - ./data/db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: "cms"
+    restart: unless-stopped
+    networks:
+      - cms-network
+
+  xmr:
+    image: ghcr.io/xibosignage/xibo-xmr:develop
+    ports:
+      - "9506:9505"
+    restart: unless-stopped
+    networks:
+      - cms-network
+
+  web:
+    # 빌드된 이미지 사용 (또는 docker-compose build로 빌드)
+    # build:
+    #   context: ../../
+    #   dockerfile: Dockerfile
+    image: noa-cms:latest
+    ports:
+      - "8000:80"
+    volumes:
+      - ./data/library:/var/www/cms/library
+      - ./data/cache:/var/www/cms/cache
+    environment:
+      CMS_DEV_MODE: "false"
+      INSTALL_TYPE: "docker"
+      MYSQL_HOST: "db"
+      MYSQL_DATABASE: "cms"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "root"
+      MYSQL_PORT: "3306"
+      XMR_HOST: "xmr"
+      CMS_SERVER_NAME: "localhost"
+    depends_on:
+      - db
+      - xmr
+    restart: unless-stopped
+    networks:
+      - cms-network
+
+networks:
+  cms-network:
+    driver: bridge
