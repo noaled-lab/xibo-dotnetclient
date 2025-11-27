@@ -65,6 +65,8 @@ namespace XiboClient.XmdsAgents
         /// <param name="enable"></param>
         public void Enable(bool enable)
         {
+            LogMessage.Audit("WeatherAgent", "Enable", enable ? "enabled" : "disabled");
+
             bool oldSet = _isWeatherRequired;
             _isWeatherRequired = enable;
 
