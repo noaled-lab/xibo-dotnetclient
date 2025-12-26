@@ -182,6 +182,10 @@ namespace XiboClient
                     rf.Path = attributes["path"].Value;
                     rf.SaveAs = (attributes["saveAs"] == null || string.IsNullOrEmpty(attributes["saveAs"].Value)) ? rf.Path : attributes["saveAs"].Value;
                     rf.Http = (attributes["download"].Value == "http");
+                    if (attributes["size"] != null && !string.IsNullOrEmpty(attributes["size"].Value))
+                    {
+                        rf.Size = double.Parse(attributes["size"].Value);
+                    }
                     rf.ChunkSize = 512000;
                 }
                 else if (rf.FileType == "layout")

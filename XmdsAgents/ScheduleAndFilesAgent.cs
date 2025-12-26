@@ -54,6 +54,8 @@ namespace XiboClient.XmdsAgents
 
         private RequiredFiles _requiredFiles;
         private Semaphore _fileDownloadLimit;
+        private readonly Dictionary<string, DownloadProgressState> _downloadProgressStates = new Dictionary<string, DownloadProgressState>();
+        private readonly object _downloadProgressLocker = new object();
 
         /// <summary>
         /// Current Schedule Manager for this Xibo Client
@@ -392,6 +394,10 @@ namespace XiboClient.XmdsAgents
                 {
                     percentComplete = "100";
                 }
+                else if (requiredFile.Size <= 0)
+                {
+                    percentComplete = "0";
+                }
                 else
                 {
                     percentComplete = Math.Round((((double)requiredFile.ChunkOffset / (double)requiredFile.Size) * 100), 1).ToString();
@@ -407,8 +413,13 @@ namespace XiboClient.XmdsAgents
         /// FileAgent OnPartComplete
         /// </summary>
         /// <param name="fileId"></param>
-        void fileAgent_OnPartComplete(int fileId)
+        /// <param name="fileType"></param>
+        /// <param name="saveAs"></param>
+        /// <param name="bytesDownloaded"></param>
+        /// <param name="bytesTotal"></param>
+        void fileAgent_OnPartComplete(int fileId, string fileType, string saveAs, double bytesDownloaded, double bytesTotal)
         {
+            TryReportDownloadProgress(fileId, fileType, saveAs, bytesDownloaded, bytesTotal, false);
             ClientInfo.Instance.UpdateRequiredFiles(RequiredFilesString());
         }
 
@@ -446,6 +457,8 @@ namespace XiboClient.XmdsAgents
             // Write the Cache Manager to Disk
             CacheManager.Instance.WriteCacheManager();
 
+            TryReportDownloadProgress(fileId, rf.FileType, rf.SaveAs, rf.Size, rf.Size, true);
+
             if (rf.FileType == "layout")
             {
                 // Reset the safe list for this file.
@@ -454,6 +467,100 @@ namespace XiboClient.XmdsAgents
                 // Raise an event to say it is completed
                 OnComplete?.Invoke(rf.SaveAs);
             }
+        }
+
+        private string BuildProgressKey(int fileId, string fileType, string saveAs)
+        {
+            return string.Format("{0}|{1}|{2}", fileType ?? string.Empty, fileId, saveAs ?? string.Empty);
+        }
+
+        private void TryReportDownloadProgress(int fileId, string fileType, string saveAs, double bytesDownloaded, double bytesTotal, bool force)
+        {
+            if (bytesTotal <= 0)
+            {
+                return;
+            }
+
+            if (bytesDownloaded < 0)
+            {
+                bytesDownloaded = 0;
+            }
+
+            double percent = (bytesDownloaded / bytesTotal) * 100;
+            if (percent > 100)
+            {
+                percent = 100;
+            }
+
+            bool shouldSend = force;
+            DateTime now = DateTime.UtcNow;
+            string key = BuildProgressKey(fileId, fileType, saveAs);
+
+            lock (_downloadProgressLocker)
+            {
+                DownloadProgressState state;
+                if (!_downloadProgressStates.TryGetValue(key, out state))
+                {
+                    state = new DownloadProgressState
+                    {
+                        LastSentUtc = DateTime.MinValue,
+                        LastPercent = -1
+                    };
+                }
+
+                if (!shouldSend)
+                {
+                    bool timeOk = (now - state.LastSentUtc).TotalSeconds >= 1;
+                    bool percentAdvanced = (percent >= state.LastPercent + 5) || (percent >= 100) || (percent < state.LastPercent);
+                    shouldSend = timeOk && percentAdvanced;
+                }
+
+                if (shouldSend)
+                {
+                    state.LastSentUtc = now;
+                    state.LastPercent = percent;
+                    _downloadProgressStates[key] = state;
+                }
+            }
+
+            if (!shouldSend)
+            {
+                return;
+            }
+
+            SendDownloadProgress(fileId, fileType, saveAs, bytesDownloaded, bytesTotal);
+        }
+
+        private void SendDownloadProgress(int fileId, string fileType, string saveAs, double bytesDownloaded, double bytesTotal)
+        {
+            try
+            {
+                using (xmds.xmds xmds = new xmds.xmds())
+                {
+                    xmds.Credentials = null;
+                    xmds.Url = ApplicationSettings.Default.XiboClient_xmds_xmds + "&method=notifyDownloadProgress";
+                    xmds.UseDefaultCredentials = false;
+                    xmds.NotifyDownloadProgressAsync(
+                        ApplicationSettings.Default.ServerKey,
+                        ApplicationSettings.Default.HardwareKey,
+                        fileType,
+                        fileId,
+                        saveAs ?? string.Empty,
+                        bytesDownloaded,
+                        bytesTotal
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(new LogMessage("RequiredFilesAgent - SendDownloadProgress", "Unable to notify progress: " + ex.Message), LogType.Info.ToString());
+            }
+        }
+
+        private class DownloadProgressState
+        {
+            public DateTime LastSentUtc;
+            public double LastPercent;
         }
 
         /// <summary>

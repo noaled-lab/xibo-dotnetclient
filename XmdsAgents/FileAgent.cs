@@ -40,7 +40,11 @@ namespace XiboClient.XmdsAgents
         /// OnPartComplete delegate
         /// </summary>
         /// <param name="fileId"></param>
-        public delegate void OnPartCompleteDelegate(int fileId);
+        /// <param name="fileType"></param>
+        /// <param name="saveAs"></param>
+        /// <param name="bytesDownloaded"></param>
+        /// <param name="bytesTotal"></param>
+        public delegate void OnPartCompleteDelegate(int fileId, string fileType, string saveAs, double bytesDownloaded, double bytesTotal);
         public event OnPartCompleteDelegate OnPartComplete;
 
         /// <summary>
@@ -134,7 +138,38 @@ namespace XiboClient.XmdsAgents
                     // Download using HTTP and the rf.Path
                     using (WebClient wc = new WebClient())
                     {
-                        wc.DownloadFile(_requiredFile.Path, ApplicationSettings.Default.LibraryPath + @"\" + _requiredFile.SaveAs);
+                        Exception downloadException = null;
+                        using (ManualResetEvent downloadComplete = new ManualResetEvent(false))
+                        {
+                            wc.DownloadProgressChanged += (sender, args) =>
+                            {
+                                OnPartComplete?.Invoke(
+                                    _requiredFile.Id,
+                                    _requiredFile.FileType,
+                                    _requiredFile.SaveAs,
+                                    args.BytesReceived,
+                                    args.TotalBytesToReceive
+                                );
+                            };
+
+                            wc.DownloadFileCompleted += (sender, args) =>
+                            {
+                                downloadException = args.Error;
+                                downloadComplete.Set();
+                            };
+
+                            wc.DownloadFileAsync(
+                                new Uri(_requiredFile.Path),
+                                ApplicationSettings.Default.LibraryPath + @"\" + _requiredFile.SaveAs
+                            );
+
+                            downloadComplete.WaitOne();
+                        }
+
+                        if (downloadException != null)
+                        {
+                            throw downloadException;
+                        }
                     }
 
                     // File completed
@@ -230,7 +265,13 @@ namespace XiboClient.XmdsAgents
                                 }
 
                                 // Part is complete
-                                OnPartComplete(_requiredFile.Id);
+                                OnPartComplete?.Invoke(
+                                    _requiredFile.Id,
+                                    _requiredFile.FileType,
+                                    _requiredFile.SaveAs,
+                                    _requiredFile.ChunkOffset,
+                                    _requiredFile.Size
+                                );
                             }
                             else
                             {

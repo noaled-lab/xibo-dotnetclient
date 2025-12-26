@@ -125,6 +125,8 @@ namespace XiboClient.xmds {
         /// <remarks/>
         public event NotifyStatusCompletedEventHandler NotifyStatusCompleted;
         
+        public event NotifyDownloadProgressCompletedEventHandler NotifyDownloadProgressCompleted;
+        
         /// <remarks/>
         public event SubmitScreenShotCompletedEventHandler SubmitScreenShotCompleted;
         
@@ -496,6 +498,48 @@ namespace XiboClient.xmds {
             if ((this.NotifyStatusCompleted != null)) {
                 System.Web.Services.Protocols.InvokeCompletedEventArgs invokeArgs = ((System.Web.Services.Protocols.InvokeCompletedEventArgs)(arg));
                 this.NotifyStatusCompleted(this, new NotifyStatusCompletedEventArgs(invokeArgs.Results, invokeArgs.Error, invokeArgs.Cancelled, invokeArgs.UserState));
+            }
+        }
+        
+        /// <remarks/>
+        [System.Web.Services.Protocols.SoapRpcMethodAttribute("urn:xmds#NotifyDownloadProgress", RequestNamespace="urn:xmds", ResponseNamespace="urn:xmds")]
+        [return: System.Xml.Serialization.SoapElementAttribute("success")]
+        public bool NotifyDownloadProgress(string serverKey, string hardwareKey, string fileType, int fileId, string saveAs, double bytesDownloaded, double bytesTotal) {
+            object[] results = this.Invoke("NotifyDownloadProgress", new object[] {
+                        serverKey,
+                        hardwareKey,
+                        fileType,
+                        fileId,
+                        saveAs,
+                        bytesDownloaded,
+                        bytesTotal});
+            return ((bool)(results[0]));
+        }
+        
+        /// <remarks/>
+        public void NotifyDownloadProgressAsync(string serverKey, string hardwareKey, string fileType, int fileId, string saveAs, double bytesDownloaded, double bytesTotal) {
+            this.NotifyDownloadProgressAsync(serverKey, hardwareKey, fileType, fileId, saveAs, bytesDownloaded, bytesTotal, null);
+        }
+        
+        /// <remarks/>
+        public void NotifyDownloadProgressAsync(string serverKey, string hardwareKey, string fileType, int fileId, string saveAs, double bytesDownloaded, double bytesTotal, object userState) {
+            if ((this.NotifyDownloadProgressOperationCompleted == null)) {
+                this.NotifyDownloadProgressOperationCompleted = new System.Threading.SendOrPostCallback(this.OnNotifyDownloadProgressOperationCompleted);
+            }
+            this.InvokeAsync("NotifyDownloadProgress", new object[] {
+                        serverKey,
+                        hardwareKey,
+                        fileType,
+                        fileId,
+                        saveAs,
+                        bytesDownloaded,
+                        bytesTotal}, this.NotifyDownloadProgressOperationCompleted, userState);
+        }
+        
+        private void OnNotifyDownloadProgressOperationCompleted(object arg) {
+            if ((this.NotifyDownloadProgressCompleted != null)) {
+                System.Web.Services.Protocols.InvokeCompletedEventArgs invokeArgs = ((System.Web.Services.Protocols.InvokeCompletedEventArgs)(arg));
+                this.NotifyDownloadProgressCompleted(this, new NotifyDownloadProgressCompletedEventArgs(invokeArgs.Results, invokeArgs.Error, invokeArgs.Cancelled, invokeArgs.UserState));
             }
         }
         
@@ -905,6 +949,32 @@ namespace XiboClient.xmds {
         private object[] results;
         
         internal NotifyStatusCompletedEventArgs(object[] results, System.Exception exception, bool cancelled, object userState) : 
+                base(exception, cancelled, userState) {
+            this.results = results;
+        }
+        
+        /// <remarks/>
+        public bool Result {
+            get {
+                this.RaiseExceptionIfNecessary();
+                return ((bool)(this.results[0]));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Web.Services", "4.8.9032.0")]
+    public delegate void NotifyDownloadProgressCompletedEventHandler(object sender, NotifyDownloadProgressCompletedEventArgs e);
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Web.Services", "4.8.9032.0")]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    public partial class NotifyDownloadProgressCompletedEventArgs : System.ComponentModel.AsyncCompletedEventArgs {
+        
+        private object[] results;
+        
+        internal NotifyDownloadProgressCompletedEventArgs(object[] results, System.Exception exception, bool cancelled, object userState) : 
                 base(exception, cancelled, userState) {
             this.results = results;
         }
