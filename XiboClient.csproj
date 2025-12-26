@@ -106,6 +106,10 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="netstandard">
+      <HintPath Condition="Exists('$(TargetFrameworkRootPath)\\.NETFramework\\v4.8\\Facades\\netstandard.dll')">$(TargetFrameworkRootPath)\.NETFramework\v4.8\Facades\netstandard.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
