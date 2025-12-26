@@ -48,6 +48,8 @@ namespace XiboClient.xmds {
         private System.Threading.SendOrPostCallback GetResourceOperationCompleted;
         
         private System.Threading.SendOrPostCallback NotifyStatusOperationCompleted;
+
+        private System.Threading.SendOrPostCallback NotifyDownloadProgressOperationCompleted;
         
         private System.Threading.SendOrPostCallback SubmitScreenShotOperationCompleted;
         
