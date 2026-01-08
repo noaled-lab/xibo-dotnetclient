@@ -56,4 +56,4 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: NoaClient
-        path: .\XiboClient\bin\Release\
+        path: .\bin\x86\Release\
