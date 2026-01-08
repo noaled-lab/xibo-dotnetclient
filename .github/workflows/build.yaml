@@ -65,7 +65,7 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Generating dependencies fragment..."
-        $binPath = "bin\Release"
+        $binPath = "bin\x86\Release"
         $solutionDir = (Get-Location).Path
         .\wix\heat.exe dir $binPath -cg Dependencies -gg -srd -sfrag -dr PlayerFolder -var var.SourceDir -out heat-fragment.wxs
 
@@ -74,7 +74,7 @@ jobs:
       run: |
         Write-Host "Compiling WiX objects..."
         $solutionDir = (Get-Location).Path
-        $binPath = "bin\Release"
+        $binPath = "bin\x86\Release"
         .\wix\candle.exe installer.wxs -out installer.wixobj -dSourceDir="$solutionDir\$binPath"
         .\wix\candle.exe heat-fragment.wxs -out heat-fragment.wixobj -dSourceDir="$solutionDir\$binPath"
 
