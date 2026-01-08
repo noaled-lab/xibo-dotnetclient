@@ -1,0 +1,56 @@
+name: Build and Upload
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Cache .NET Framework 4.7.2 Reference Assemblies
+      id: cache-net472
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}\net472ref
+        key: net472-ref-v1
+    
+    - name: Install .NET Framework 4.7.2 Reference Assemblies
+      if: steps.cache-net472.outputs.cache-hit != 'true'
+      shell: powershell
+      run: |
+        $extractPath = "${{ runner.temp }}\net472ref"
+        Write-Host "Cache miss - downloading .NET Framework 4.7.2 Reference Assemblies..."
+        $url = "https://www.nuget.org/api/v2/package/Microsoft.NETFramework.ReferenceAssemblies.net472/1.0.3"
+        $nupkg = "$env:TEMP\net472ref.nupkg"
+        $zipFile = "$env:TEMP\net472ref.zip"
+        
+        Invoke-WebRequest -Uri $url -OutFile $nupkg -UseBasicParsing
+        Rename-Item -Path $nupkg -NewName $zipFile
+        Expand-Archive -Path $zipFile -DestinationPath $extractPath -Force
+        Write-Host "Download and extraction completed"
+    
+    - name: Copy Reference Assemblies to System Location
+      shell: powershell
+      run: |
+        $sourcePath = "${{ runner.temp }}\net472ref\build\.NETFramework\v4.7.2"
+        $targetPath = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2"
+        
+        if (Test-Path $sourcePath) {
+          Write-Host "Copying reference assemblies from cache/download..."
+          New-Item -ItemType Directory -Path $targetPath -Force
+          Copy-Item -Path "$sourcePath\*" -Destination $targetPath -Recurse -Force
+          Write-Host "Reference assemblies installed successfully"
+        } else {
+          Write-Error "Source path not found: $sourcePath"
+          exit 1
+        }
+    
+    - uses: microsoft/setup-msbuild@v2
+    
+    - name: Build solution
+      run: msbuild XiboClient.sln /p:Configuration=Release /p:Platform="x86"
+    
+    - uses: actions/upload-artifact@v4
+      with:
+        name: NoaClient
+        path: .\XiboClient\bin\Release\
