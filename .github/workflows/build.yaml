@@ -46,8 +46,11 @@ jobs:
         }
     
     - uses: microsoft/setup-msbuild@v2
+
+    - name : Restore Packages
+      run: msbuild XiboClient.sln /t:Restore /p:Configuration=Release /p:Platform="x86"
     
-    - name: Build solution
+    - name: Build Solution
       run: msbuild XiboClient.sln /p:Configuration=Release /p:Platform="x86"
     
     - uses: actions/upload-artifact@v4
