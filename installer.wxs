@@ -86,9 +86,10 @@
     <Icon Id="ProductIcon" SourceFile="new-icon.ico" />
     
     <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
-    <Property Id="ARPHELPLINK" Value="https://noa.com" />
-    <Property Id="ARPURLINFOABOUT" Value="https://noa.com" />
+    <Property Id="ARPHELPLINK" Value="https://noaled.kr" />
+    <Property Id="ARPURLINFOABOUT" Value="https://noaled.kr" />
     
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
     <UIRef Id="WixUI_Minimal" />
   </Product>
 </Wix>
