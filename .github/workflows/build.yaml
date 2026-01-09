@@ -4,6 +4,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      BASE_VERSION: "4.40.53"
+      VERSION: "4.40.53.${{ github.run_number }}"
     steps:
     - uses: actions/checkout@v4
     
@@ -75,16 +78,21 @@ jobs:
         Write-Host "Compiling WiX objects..."
         $solutionDir = (Get-Location).Path
         $binPath = "bin\x86\Release"
-        .\wix\candle.exe installer.wxs -out installer.wixobj -dSourceDir="$solutionDir\$binPath"
+        $version = "$env:VERSION"
+        Write-Host "Building version: $version"
+        .\wix\candle.exe installer.wxs -out installer.wixobj -dSourceDir="$solutionDir\$binPath" -dProductVersion="$version"
         .\wix\candle.exe heat-fragment.wxs -out heat-fragment.wixobj -dSourceDir="$solutionDir\$binPath"
 
     - name: Build MSI Package
       shell: powershell
       run: |
         Write-Host "Building MSI package..."
-        .\wix\light.exe installer.wixobj heat-fragment.wixobj -out NOA-Player-v4.40.53.msi -ext WixUIExtension
+        $version = "$env:VERSION"
+        $outputFile = "NOA-Player-v$version.msi"
+        Write-Host "Output file: $outputFile"
+        .\wix\light.exe installer.wixobj heat-fragment.wixobj -out $outputFile -ext WixUIExtension
 
     - uses: actions/upload-artifact@v4
       with:
-        name: NOAPlayer-MSI
-        path: NOA-Player-v4.40.53.msi
+        name: NOAPlayer-MSI-${{ env.VERSION }}
+        path: NOA-Player-v${{ env.VERSION }}.msi

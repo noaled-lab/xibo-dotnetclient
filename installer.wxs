@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?define ProductVersion = "$(var.ProductVersion)" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" 
-           Name="NOA Player" 
-           Language="1033" 
-           Version="4.40.53" 
-           Manufacturer="NOA" 
+  <Product Id="*"
+           Name="NOA Player"
+           Language="1033"
+           Version="$(var.ProductVersion)"
+           Manufacturer="NOA"
            UpgradeCode="B413BC3A-1443-A538-8821-5F8447F4A74B">
     
     <Package InstallerVersion="200" 
