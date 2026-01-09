@@ -206,4 +206,8 @@ FakesAssemblies/
 
 
 # 노아엘이디
-NOA-Player-v4.40.53.msi
+# WiX build artifacts
+*.msi
+*.wixpdb
+*.wixobj
+heat-fragment.wxs
