@@ -1,46 +1,24 @@
-# Introduction
-This is the repository for the Xibo for Windows Digital Signage Player, compatible with the Xibo Content Management System, and intended to be used for Digital Signage.
+### 미디어 다운로드 관련 참고사항
+Xibo는 2000년대부터 개발 시작된 완전 오래된 프로젝트임.
+당시에는 SOAP를 주로 썼던걸로 보이고 청크 다운로드가 구현되어 있음
 
-If you are looking for more information about Xibo please refer to [our website](https://xibo.org.uk).
+CMS 쪽에 bytesRequested라는게 있는데 이건 플레이어에게 요청된 다운로드 크기임
+SOAP 청크 다운로드에서는 잘 동작했던 것으로 추정함
 
+하지만 이후에 REST가 도입된걸로 보이고 REST의 경우 청크 다운로드로 구현된게 아니라
+다운로드 시작과 동시에 전체 파일 크기가 요청되어 그 과정이 보이지 않던 문제가 있음
 
+이 문제를 해결하기 위해서 bytesRequested를 다른 방식으로 활용하기로 함
+CMS쪽에서 요청된 크기가 아니라 실제로 플레이어가 다운로드 받은 크기를 보고받도록 하기로 결정
 
-## Licence
+ReportInventory는 플레이어가 현재 파일의 상태를 보고하는 메서드임
+기존에는 다운로드 시작 시, 그리고 다운로드 완료 시 보고하는 것으로 되어 있음
+이를 수정하여 기존에 없던 다운로드 크기를 추가하였음
 
-Xibo - Digital Signage - http://xibo.org.uk - Copyright (C) 2006-2021 Xibo Signage Ltd
+HTTP 다운로드를 비동기로 변경하고 이벤트를 활용하여
+다운로드 과정을 추적하도록 함
 
-Xibo is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-any later version. 
+다운로드 과정에서 조건에 맞을 경우 ReportInventory를 호출하도록 하였음
+너무 자주 서버에 요청하면 CMS에 부하가 걸릴 수 있으니 일정 시간 딜레이를 두었음
 
-Xibo is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with Xibo.  If not, see <http://www.gnu.org/licenses/>. 
-
-
-
-## Branches
-
-We have a number of branches
-
-- master: our stable branch, currently on version 2
-- develop: our next release work in progress
-- feature/finlay: our work in progress for v3 R300
-- release/winforms: our v2 compatible player, up to R202 using Windows Forms
-- release/tempel: our v1.8 compatible player
-- release/tuttle: our v1.7 compatible player
-
-# Issues
-
-The Xibo Project uses GitHub Issues to record verified bugs only.
-
-If you're having difficulties with Xibo, or need support,
-please post on our Community Site here: https://community.xibo.org.uk 
-
-If the issue you are having does turn out to be a verified bug, a 
-representative will log it here as an issue on your behalf.
+*CMS 설정으로 SOAP와 REST 중 선택할 수 있음. 도커로 실행하면 기본 REST임
