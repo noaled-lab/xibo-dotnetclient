@@ -453,12 +453,11 @@ namespace XiboClient
                     }
                     else
                     {
-                        xml += string.Format("<file type=\"{0}\" id=\"{1}\" complete=\"{2}\" lastChecked=\"{3}\" bytesRequested=\"{4}\" />",
+                        xml += string.Format("<file type=\"{0}\" id=\"{1}\" complete=\"{2}\" lastChecked=\"{3}\" />",
                             rf.FileType,
                             rf.Id.ToString(),
                             (rf.Complete ? "1" : "0"),
-                            rf.LastChecked.ToString(),
-                            (long)rf.ChunkOffset
+                            rf.LastChecked.ToString()
                         );
                     }
                 }

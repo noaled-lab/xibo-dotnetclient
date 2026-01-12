@@ -102,11 +102,6 @@ namespace XiboClient.XmdsAgents
         private string _lastCheckSchedule;
 
         /// <summary>
-        /// Last time MediaInventory was reported
-        /// </summary>
-        private DateTime _lastMediaInventoryReport = DateTime.MinValue;
-
-        /// <summary>
         /// The data agent
         /// </summary>
         private DataAgent _dataAgent;
@@ -415,13 +410,6 @@ namespace XiboClient.XmdsAgents
         void fileAgent_OnPartComplete(int fileId)
         {
             ClientInfo.Instance.UpdateRequiredFiles(RequiredFilesString());
-
-            // Report progress to CMS every 10 seconds to avoid excessive API calls
-            if ((DateTime.Now - _lastMediaInventoryReport).TotalSeconds >= 10)
-            {
-                _requiredFiles.ReportInventory();
-                _lastMediaInventoryReport = DateTime.Now;
-            }
         }
 
         /// <summary>

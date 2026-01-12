@@ -133,60 +133,8 @@ namespace XiboClient.XmdsAgents
                 {
                     // Download using HTTP and the rf.Path
                     using (WebClient wc = new WebClient())
-                    using (ManualResetEvent downloadComplete = new ManualResetEvent(false))
                     {
-                        // Track progress for UI updates
-                        long lastReportedBytes = 0;
-                        Exception downloadException = null;
-                        bool downloadCancelled = false;
-
-                        // Calculate the minimum bytes threshold for progress updates (1% or at least 1KB)
-                        long progressThreshold = Math.Max(1024, (long)(_requiredFile.Size / 100));
-
-                        // Register progress event to update ChunkOffset and trigger UI updates
-                        wc.DownloadProgressChanged += (sender, e) =>
-                        {
-                            _requiredFile.ChunkOffset = e.BytesReceived;
-
-                            // Update UI only when progress changes by at least 1% to avoid excessive updates
-                            if (e.BytesReceived - lastReportedBytes > progressThreshold)
-                            {
-                                OnPartComplete?.Invoke(_requiredFile.Id);
-                                lastReportedBytes = e.BytesReceived;
-                            }
-                        };
-
-                        // Register completion event
-                        wc.DownloadFileCompleted += (sender, e) =>
-                        {
-                            if (e.Error != null)
-                            {
-                                downloadException = e.Error;
-                            }
-                            else if (e.Cancelled)
-                            {
-                                downloadCancelled = true;
-                            }
-                            downloadComplete.Set();
-                        };
-
-                        // Start async download
-                        wc.DownloadFileAsync(new Uri(_requiredFile.Path), ApplicationSettings.Default.LibraryPath + @"\" + _requiredFile.SaveAs);
-
-                        // Wait for download to complete
-                        downloadComplete.WaitOne();
-
-                        // Check if download was cancelled
-                        if (downloadCancelled)
-                        {
-                            throw new WebException("Download was cancelled");
-                        }
-
-                        // Check if download failed
-                        if (downloadException != null)
-                        {
-                            throw downloadException;
-                        }
+                        wc.DownloadFile(_requiredFile.Path, ApplicationSettings.Default.LibraryPath + @"\" + _requiredFile.SaveAs);
                     }
 
                     // File completed
