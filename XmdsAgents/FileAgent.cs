@@ -131,61 +131,68 @@ namespace XiboClient.XmdsAgents
                 }
                 else if (_requiredFile.Http)
                 {
-                    // Download using HTTP and the rf.Path
+                    // HTTP 직접 다운로드 (XMDS를 거치지 않고 외부 URL에서 직접 다운로드)
                     using (WebClient wc = new WebClient())
-                    using (ManualResetEvent downloadComplete = new ManualResetEvent(false))
                     {
-                        // Track progress for UI updates
-                        long lastReportedBytes = 0;
-                        Exception downloadException = null;
-                        bool downloadCancelled = false;
-
-                        // Calculate the minimum bytes threshold for progress updates (1% or at least 1KB)
-                        long progressThreshold = Math.Max(1024, (long)(_requiredFile.Size / 100));
-
-                        // Register progress event to update ChunkOffset and trigger UI updates
-                        wc.DownloadProgressChanged += (sender, e) =>
+                        // ManualResetEvent를 이용한 스레드 관리
+                        using (ManualResetEvent downloadComplete = new ManualResetEvent(false))
                         {
-                            _requiredFile.ChunkOffset = e.BytesReceived;
+                            // 진행률 추적 변수들
+                            long lastReportedBytes = 0;  // 마지막으로 진행률을 보고한 시점의 바이트 수
+                            long progressThreshold = Math.Max(1024, (long)(_requiredFile.Size / 100));  // 진행률 보고 간격 (최소 1KB 또는 전체 크기의 1%)
 
-                            // Update UI only when progress changes by at least 1% to avoid excessive updates
-                            if (e.BytesReceived - lastReportedBytes > progressThreshold)
+                            // 다운로드 에러 추적
+                            Exception downloadException = null;
+                            bool downloadCancelled = false;
+
+                            // 이벤트 핸들러 1: 다운로드 진행 중 (비동기 콜백)
+                            wc.DownloadProgressChanged += (sender, e) =>
                             {
-                                OnPartComplete?.Invoke(_requiredFile.Id);
-                                lastReportedBytes = e.BytesReceived;
-                            }
-                        };
+                                // 현재 다운로드된 바이트 수를 ChunkOffset에 기록 (MediaInventory 보고용) - ChunkOffset은 기존에 있던거임
+                                _requiredFile.ChunkOffset = e.BytesReceived;
 
-                        // Register completion event
-                        wc.DownloadFileCompleted += (sender, e) =>
-                        {
-                            if (e.Error != null)
+                                // 일정 간격(1KB 또는 1%)마다만 OnPartComplete 이벤트 발생 (부하 방지)
+                                if (e.BytesReceived - lastReportedBytes > progressThreshold)
+                                {
+                                    OnPartComplete?.Invoke(_requiredFile.Id); // 이걸 호출하면 퍼센트를 다시 계산해둠..실제로 UI 업데이트는 5초마다 발생함
+                                    lastReportedBytes = e.BytesReceived;
+                                }
+                            };
+
+                            // 이벤트 핸들러 2: 다운로드 완료 또는 실패 (비동기 콜백)
+                            wc.DownloadFileCompleted += (sender, e) =>
                             {
-                                downloadException = e.Error;
-                            }
-                            else if (e.Cancelled)
+                                // 에러 발생 시 예외 저장
+                                if (e.Error != null)
+                                {
+                                    downloadException = e.Error;
+                                }
+                                // 취소된 경우
+                                else if (e.Cancelled)
+                                {
+                                    downloadCancelled = true;
+                                }
+
+                                // 완료 신호 전송 (메인 스레드 깨우기)
+                                downloadComplete.Set();
+                            };
+
+                            // 비동기 다운로드 시작
+                            wc.DownloadFileAsync(new Uri(_requiredFile.Path), ApplicationSettings.Default.LibraryPath + @"\" + _requiredFile.SaveAs);
+
+                            // 다운로드 완료까지 대기 (블로킹) - 파일 다운로드는 별도 스레드라 상관없음 (세마포어라는 고급 기술 써서 동시 다운로드 및 제한도 있음)
+                            downloadComplete.WaitOne();
+
+                            // 다운로드 결과 확인 및 예외 처리 (예외 던지면 어딘가에서 잡고있음)
+                            if (downloadCancelled)
                             {
-                                downloadCancelled = true;
+                                throw new WebException("Download was cancelled");
                             }
-                            downloadComplete.Set();
-                        };
 
-                        // Start async download
-                        wc.DownloadFileAsync(new Uri(_requiredFile.Path), ApplicationSettings.Default.LibraryPath + @"\" + _requiredFile.SaveAs);
-
-                        // Wait for download to complete
-                        downloadComplete.WaitOne();
-
-                        // Check if download was cancelled
-                        if (downloadCancelled)
-                        {
-                            throw new WebException("Download was cancelled");
-                        }
-
-                        // Check if download failed
-                        if (downloadException != null)
-                        {
-                            throw downloadException;
+                            if (downloadException != null)
+                            {
+                                throw downloadException;
+                            }
                         }
                     }
 
