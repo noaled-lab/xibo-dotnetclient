@@ -453,7 +453,8 @@ namespace XiboClient
                     }
                     else
                     {
-                        xml += string.Format("<file type=\"{0}\" id=\"{1}\" complete=\"{2}\" lastChecked=\"{3}\" bytesRequested=\"{4}\" />",
+                        // byteDownloaded 추가됨
+                        xml += string.Format("<file type=\"{0}\" id=\"{1}\" complete=\"{2}\" lastChecked=\"{3}\" bytesDownloaded=\"{4}\" />",
                             rf.FileType,
                             rf.Id.ToString(),
                             (rf.Complete ? "1" : "0"),
