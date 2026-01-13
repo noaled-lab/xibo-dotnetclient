@@ -102,6 +102,11 @@ namespace XiboClient.XmdsAgents
         private string _lastCheckSchedule;
 
         /// <summary>
+        /// 마지막 MediaInventory 보고 시간
+        /// </summary>
+        private DateTime _lastMediaInventoryReport = DateTime.MinValue;
+
+        /// <summary>
         /// The data agent
         /// </summary>
         private DataAgent _dataAgent;
@@ -409,7 +414,14 @@ namespace XiboClient.XmdsAgents
         /// <param name="fileId"></param>
         void fileAgent_OnPartComplete(int fileId)
         {
-            ClientInfo.Instance.UpdateRequiredFiles(RequiredFilesString());
+            ClientInfo.Instance.UpdateRequiredFiles(RequiredFilesString()); // RequiredFilesString 내부에서 ChunkOffset 기반으로 퍼센트 계산함
+
+            // 최소 10초마다 MediaInventory 보고
+            if ((DateTime.Now - _lastMediaInventoryReport).TotalSeconds >= 10) // 하드코딩된거 추후 누군가 설정 가능하도록 수정 부탁드림
+            {
+                _requiredFiles.ReportInventory();
+                _lastMediaInventoryReport = DateTime.Now;
+            }
         }
 
         /// <summary>
