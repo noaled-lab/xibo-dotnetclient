@@ -155,7 +155,16 @@ namespace XiboClient.XmdsAgents
                 
                 if (File.Exists(filePath))
                 {
-                    File.Move(filePath, archivedFilePath, true);
+                    // If destination file already exists, append a counter to create a unique name
+                    int counter = 1;
+                    while (File.Exists(archivedFilePath))
+                    {
+                        archivedFileName = fileName + ".archived_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + counter;
+                        archivedFilePath = Path.Combine(archiveDir, archivedFileName);
+                        counter++;
+                    }
+                    
+                    File.Move(filePath, archivedFilePath);
                     Trace.WriteLine(new LogMessage("LogAgent - ArchiveFile", "File archived: " + fileName + " -> " + archivedFileName), LogType.Audit.ToString());
                 }
             }
