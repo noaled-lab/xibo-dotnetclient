@@ -127,6 +127,45 @@ namespace XiboClient.XmdsAgents
         }
 
         /// <summary>
+        /// Create archive directory for old log files
+        /// </summary>
+        /// <returns>Archive directory path</returns>
+        private string EnsureArchiveDirectory()
+        {
+            string archivePath = Path.Combine(ApplicationSettings.Default.LibraryPath, "logs");
+            if (!Directory.Exists(archivePath))
+            {
+                Directory.CreateDirectory(archivePath);
+            }
+            return archivePath;
+        }
+
+        /// <summary>
+        /// Archive or rename file instead of deleting it
+        /// </summary>
+        /// <param name="filePath"></param>
+        private void ArchiveFile(string filePath)
+        {
+            try
+            {
+                string archiveDir = EnsureArchiveDirectory();
+                string fileName = Path.GetFileName(filePath);
+                string archivedFileName = fileName + ".archived_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string archivedFilePath = Path.Combine(archiveDir, archivedFileName);
+                
+                if (File.Exists(filePath))
+                {
+                    File.Move(filePath, archivedFilePath, true);
+                    Trace.WriteLine(new LogMessage("LogAgent - ArchiveFile", "File archived: " + fileName + " -> " + archivedFileName), LogType.Audit.ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(new LogMessage("LogAgent - ArchiveFile", "Error archiving file: " + ex.Message), LogType.Error.ToString());
+            }
+        }
+
+        /// <summary>
         /// Process files
         /// </summary>
         /// <param name="xmds"></param>
@@ -152,10 +191,15 @@ namespace XiboClient.XmdsAgents
             // Loop through each file
             foreach (FileInfo fileInfo in directory.GetFiles("*" + type + "*"))
             {
+                // Skip archive files
+                if (fileInfo.Name.Contains("archived"))
+                    continue;
+
                 if (fileInfo.LastAccessTime < testDate)
                 {
-                    Trace.WriteLine(new LogMessage("LogAgent - Run", "Deleting old file: " + fileInfo.Name), LogType.Info.ToString());
-                    File.Delete(fileInfo.FullName);
+                    Trace.WriteLine(new LogMessage("LogAgent - Run", "Archiving old file: " + fileInfo.Name), LogType.Info.ToString());
+                    // Archive instead of delete to prevent data loss
+                    ArchiveFile(fileInfo.FullName);
                     continue;
                 }
 
@@ -175,8 +219,8 @@ namespace XiboClient.XmdsAgents
                 // Send
                 xmds.SubmitLog(ApplicationSettings.Default.ServerKey, key, builder.ToString());
 
-                // Delete the file we are on
-                File.Delete(fileInfo.FullName);
+                // Archive the file instead of deleting it to prevent data loss
+                ArchiveFile(fileInfo.FullName);
 
                 // Increment files processed
                 filesProcessed++;
