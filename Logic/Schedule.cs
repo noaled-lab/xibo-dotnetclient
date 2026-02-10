@@ -335,13 +335,38 @@ namespace XiboClient
         /// <returns></returns>
         private bool agentThreadsAlive()
         {
-            return _registerAgentThread.IsAlive &&
+            bool threadsAlive = _registerAgentThread.IsAlive &&
                 _scheduleAndRfAgentThread.IsAlive &&
                 _logAgentThread.IsAlive &&
                 _faultsAgentThread.IsAlive &&
                 _libraryAgentThread.IsAlive &&
                 _xmrSubscriberThread.IsAlive &&
                 _weatherAgentThread.IsAlive;
+
+            if (!threadsAlive)
+                return false;
+
+            // UI 스레드(Dispatcher) 응답 체크
+            try
+            {
+                bool responded = false;
+                App.Current.Dispatcher.Invoke(
+                    () => { responded = true; },
+                    DispatcherPriority.Background,
+                    CancellationToken.None,
+                    TimeSpan.FromSeconds(5));
+
+                if (responded)
+                {
+                    ClientInfo.Instance.UiLastActivity = DateTime.Now;
+                }
+
+                return responded;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
