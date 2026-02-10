@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -174,17 +175,37 @@ namespace XiboClient
                         Trace.WriteLine(new LogMessage("Main", "Couldn't write to event log: " + ex.Message), LogType.Info.ToString());
                     }
 
-                    Trace.Flush();
+                    // Trace.Flush can hang when the rendering thread is dead,
+                    // so run it with a timeout
+                    var flushTask = Task.Run(() => Trace.Flush());
+                    if (!flushTask.Wait(3000))
+                    {
+                        // Flush timed out - write directly to file as fallback
+                        try
+                        {
+                            if (!string.IsNullOrEmpty(ApplicationSettings.Default.LogToDiskLocation))
+                            {
+                                File.AppendAllText(ApplicationSettings.Default.LogToDiskLocation,
+                                    DateTime.Now + " Unhandled Exception: " + source + ": " + e.Message + Environment.NewLine +
+                                    DateTime.Now + " Stack Trace: " + e.StackTrace + Environment.NewLine);
+                            }
+                        }
+                        catch { }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Trace.WriteLine(new LogMessage("Main", "Unable to write Trace Listeners " + ex.Message), LogType.Info.ToString());
-
-                    // Complete failure, show something to the user in these circumstances.
-                    if (quit)
+                    // Direct file write as last resort
+                    try
                     {
-                        MessageBox.Show("Unhandled Exception: " + ex.Message + ". Stack Trace: " + e.StackTrace, "Fatal Error");
+                        if (!string.IsNullOrEmpty(ApplicationSettings.Default.LogToDiskLocation))
+                        {
+                            File.AppendAllText(ApplicationSettings.Default.LogToDiskLocation,
+                                DateTime.Now + " Unhandled Exception: " + source + ": " + e.Message + Environment.NewLine +
+                                DateTime.Now + " Unable to write Trace Listeners: " + ex.Message + Environment.NewLine);
+                        }
                     }
+                    catch { }
                 }
 
                 // Exit the application and allow it to be restarted by the Watchdog.
