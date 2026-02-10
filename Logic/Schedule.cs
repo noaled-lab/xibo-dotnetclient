@@ -28,6 +28,7 @@ using XiboClient.Adspace;
 using XiboClient.Control;
 using XiboClient.Log;
 using XiboClient.Logic;
+using XiboClient.Rendering;
 using XiboClient.Stats;
 using XiboClient.XmdsAgents;
 
@@ -303,6 +304,17 @@ namespace XiboClient
             {
                 // Update status marker on the main thread.
                 ClientInfo.Instance.RenderLastActivity = getRenderLastActivity();
+
+                // Check video stall status
+                ClientInfo.Instance.IsVideoStalled = Video.IsVideoStalled;
+                ClientInfo.Instance.VideoStallInfo = Video.GetVideoStallInfo();
+
+                if (Video.IsVideoStalled)
+                {
+                    Trace.WriteLine(new LogMessage("Schedule - OnScheduleManagerCheckComplete",
+                        "Video stall detected: " + (ClientInfo.Instance.VideoStallInfo ?? "unknown")), LogType.Error.ToString());
+                }
+
                 ClientInfo.Instance.UpdateStatusMarkerFile(getUiLastActivity());
             }
             else
