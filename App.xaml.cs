@@ -188,7 +188,7 @@ namespace XiboClient
                 }
 
                 // Exit the application and allow it to be restarted by the Watchdog.
-                Environment.Exit(0);
+                Process.GetCurrentProcess().Kill();
             }
         }
 
