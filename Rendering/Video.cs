@@ -182,11 +182,26 @@ namespace XiboClient.Rendering
             // Log and expire
             Trace.WriteLine(new LogMessage("Video", "MediaElement_MediaFailed: " + this.Id + " Media Failed. E = " + e.ErrorException.Message), LogType.Error.ToString());
 
-            // Restart the application to recover from media failure
-            Trace.Flush();
-            Application.Current.Dispatcher.Invoke(() => {
-                Application.Current.Shutdown();
-            });
+            if (e.ErrorException.Message.Contains("HRESULT"))
+            {
+                // UCEERR_RENDERTHREADFAILURE - rendering thread is dead, force kill
+                Trace.Flush();
+                Process.GetCurrentProcess().Kill();
+            }
+            else
+            {
+                // Failed is the opposite of open, but we mark this as open called so that our watchman doesn't also try to expire
+                this._openCalled = true;
+
+                // Add this to a temporary blacklist so that we don't repeat it too quickly
+                CacheManager.Instance.AddUnsafeItem(UnsafeItemType.Media, UnsafeFaultCodes.VideoUnexpected, LayoutId, FileId, "Video Failed: " + e.ErrorException.Message, 120);
+
+                // Set as failed to play
+                IsFailedToPlay = true;
+
+                // Expire
+                SignalElapsedEvent();
+            }
         }
 
         /// <summary>
