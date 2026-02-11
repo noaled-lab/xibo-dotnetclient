@@ -302,7 +302,7 @@ namespace XiboClient
             if (agentThreadsAlive())
             {
                 // Update status marker on the main thread.
-                ClientInfo.Instance.UpdateStatusMarkerFile(getUiLastActivity());
+                ClientInfo.Instance.UpdateStatusMarkerFile();
             }
             else
             {
@@ -335,22 +335,18 @@ namespace XiboClient
         /// <returns></returns>
         private bool agentThreadsAlive()
         {
-            return _registerAgentThread.IsAlive &&
+            bool threadsAlive = _registerAgentThread.IsAlive &&
                 _scheduleAndRfAgentThread.IsAlive &&
                 _logAgentThread.IsAlive &&
                 _faultsAgentThread.IsAlive &&
                 _libraryAgentThread.IsAlive &&
                 _xmrSubscriberThread.IsAlive &&
                 _weatherAgentThread.IsAlive;
-        }
 
-        /// <summary>
-        /// Get the last time the UI thread responded.
-        /// </summary>
-        /// <returns></returns>
-        private DateTime _uiLastActivity = DateTime.Now;
-        private DateTime getUiLastActivity()
-        {
+            if (!threadsAlive)
+                return false;
+
+            // UI 스레드(Dispatcher) 응답 체크
             try
             {
                 bool responded = false;
@@ -362,15 +358,15 @@ namespace XiboClient
 
                 if (responded)
                 {
-                    _uiLastActivity = DateTime.Now;
+                    ClientInfo.Instance.UiLastActivity = DateTime.Now;
                 }
+
+                return responded;
             }
             catch
             {
-                // UI thread not responding, keep last known time
+                return false;
             }
-
-            return _uiLastActivity;
         }
 
         /// <summary>

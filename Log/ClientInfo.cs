@@ -81,6 +81,11 @@ namespace XiboClient.Log
         public string UnsafeList;
 
         /// <summary>
+        /// UI Last Activity
+        /// </summary>
+        public DateTime UiLastActivity = DateTime.Now;
+
+        /// <summary>
         /// Control Count
         /// </summary>
         public int ControlCount;
@@ -186,7 +191,7 @@ namespace XiboClient.Log
         /// <summary>
         /// Update Status Marker File
         /// </summary>
-        public void UpdateStatusMarkerFile(DateTime? uiLastActivity = null)
+        public void UpdateStatusMarkerFile()
         {
             lock (_locker)
             {
@@ -201,13 +206,11 @@ namespace XiboClient.Log
                                 writer.Formatting = Formatting.Indented;
                                 writer.WriteStartObject();
                                 writer.WritePropertyName("lastActivity");
-                                writer.WriteValue((uiLastActivity ?? DateTime.Now).ToString());
+                                writer.WriteValue(DateTime.Now.ToString());
                                 writer.WritePropertyName("state");
                                 writer.WriteValue(App.Current.Dispatcher.Thread.ThreadState.ToString());
-                                writer.WritePropertyName("agentLastActivity");
-                                writer.WriteValue(DateTime.Now.ToString());
                                 writer.WritePropertyName("uiLastActivity");
-                                writer.WriteValue((uiLastActivity ?? DateTime.Now).ToString());
+                                writer.WriteValue(UiLastActivity.ToString());
                                 writer.WritePropertyName("xmdsLastActivity");
                                 writer.WriteValue(ApplicationSettings.Default.XmdsLastConnection.ToString());
                                 writer.WritePropertyName("xmdsCollectInterval");
