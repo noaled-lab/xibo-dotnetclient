@@ -182,6 +182,12 @@ namespace XiboClient.Rendering
             // Log and expire
             Trace.WriteLine(new LogMessage("Video", "MediaElement_MediaFailed: " + this.Id + " Media Failed. E = " + e.ErrorException.Message), LogType.Error.ToString());
 
+            if (e.ErrorException.Message.Contains("HRESULT"))
+            {
+                Trace.Flush();
+                Process.GetCurrentProcess().Kill();
+            }
+
             // Failed is the opposite of open, but we mark this as open called so that our watchman doesn't also try to expire
             this._openCalled = true;
 
