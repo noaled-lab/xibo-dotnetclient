@@ -312,7 +312,7 @@ namespace XiboClient
                         "Video stall detected: " + (ClientInfo.Instance.VideoStallInfo ?? "unknown")), LogType.Error.ToString());
                 }
 
-                ClientInfo.Instance.UpdateStatusMarkerFile(getUiLastActivity());
+                ClientInfo.Instance.UpdateStatusMarkerFile();
             }
             else
             {
@@ -354,34 +354,7 @@ namespace XiboClient
                 _weatherAgentThread.IsAlive;
         }
 
-        /// <summary>
-        /// Get the last time the UI thread responded.
-        /// </summary>
-        /// <returns></returns>
-        private DateTime _uiLastActivity = DateTime.Now;
-        private DateTime getUiLastActivity()
-        {
-            try
-            {
-                bool responded = false;
-                App.Current.Dispatcher.Invoke(
-                    () => { responded = true; },
-                    DispatcherPriority.Background,
-                    CancellationToken.None,
-                    TimeSpan.FromSeconds(5));
 
-                if (responded)
-                {
-                    _uiLastActivity = DateTime.Now;
-                }
-            }
-            catch
-            {
-                // UI thread not responding, keep last known time
-            }
-
-            return _uiLastActivity;
-        }
 
 
 
