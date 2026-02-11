@@ -86,11 +86,6 @@ namespace XiboClient.Log
         public int ControlCount;
 
         /// <summary>
-        /// Render Last Activity
-        /// </summary>
-        public DateTime RenderLastActivity = DateTime.Now;
-
-        /// <summary>
         /// Is a video currently stalled?
         /// </summary>
         public bool IsVideoStalled { get; set; }
@@ -227,8 +222,6 @@ namespace XiboClient.Log
                                 writer.WriteValue(ApplicationSettings.Default.XmdsLastConnection.ToString());
                                 writer.WritePropertyName("xmdsCollectInterval");
                                 writer.WriteValue(ApplicationSettings.Default.CollectInterval.ToString());
-                                writer.WritePropertyName("renderLastActivity");
-                                writer.WriteValue(RenderLastActivity.ToString());
                                 writer.WritePropertyName("videoStalled");
                                 writer.WriteValue(IsVideoStalled);
                                 if (!string.IsNullOrEmpty(VideoStallInfo))
