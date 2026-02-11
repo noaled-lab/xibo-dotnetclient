@@ -145,6 +145,9 @@ namespace XiboClient
             // Show in taskbar
             ShowInTaskbar = ApplicationSettings.Default.ShowInTaskbar;
 
+            // Detect render thread death (black screen with audio still playing)
+            Dispatcher.UnhandledException += Dispatcher_UnhandledException;
+
             // Events
             Loaded += MainWindow_Loaded;
             Closing += MainForm_FormClosing;
@@ -1386,6 +1389,36 @@ namespace XiboClient
 
             // Yield and restart
             _schedule.NextLayout();
+        }
+
+        /// <summary>
+        /// Detect render thread death (zombie partition).
+        /// When GPU memory is exhausted, the WPF render thread dies but the UI thread
+        /// stays alive - audio keeps playing but the screen goes black.
+        /// </summary>
+        private void Dispatcher_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs args)
+        {
+            string stackTrace = args.Exception.StackTrace ?? "";
+
+            bool isRenderThreadDeath =
+                (args.Exception is OutOfMemoryException ||
+                 args.Exception is InvalidOperationException ||
+                 (args.Exception is System.Runtime.InteropServices.COMException comEx
+                    && comEx.ErrorCode == unchecked((int)0x88980406)))
+                && (stackTrace.Contains("DUCE")
+                    || stackTrace.Contains("HwndTarget")
+                    || stackTrace.Contains("NotifyPartitionIsZombie")
+                    || stackTrace.Contains("MediaContext"));
+
+            if (isRenderThreadDeath)
+            {
+                Trace.WriteLine(new LogMessage("MainWindow", "Render thread death detected: " + args.Exception.Message), LogType.Error.ToString());
+
+                try { Trace.Flush(); } catch { }
+
+                // Kill immediately - watchdog will restart us
+                Process.GetCurrentProcess().Kill();
+            }
         }
 
         #region Dispose
