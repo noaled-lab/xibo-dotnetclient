@@ -38,62 +38,6 @@ namespace XiboClient.Rendering
         private bool _openCalled = false;
         private bool _stopped = false;
 
-        #region Static Video Stall Detection
-
-        private static readonly object _trackingLock = new object();
-        private static bool _isVideoPlaying = false;
-        private static TimeSpan _lastKnownPosition = TimeSpan.Zero;
-        private static DateTime _lastPositionChangeTime = DateTime.Now;
-        private static string _trackedVideoId = null;
-
-        /// <summary>
-        /// Is a visible video currently playing?
-        /// </summary>
-        public static bool IsVideoCurrentlyPlaying
-        {
-            get { lock (_trackingLock) { return _isVideoPlaying; } }
-        }
-
-        /// <summary>
-        /// Is the currently playing video stalled?
-        /// A video is considered stalled if it's playing but position hasn't changed for 10+ seconds.
-        /// </summary>
-        public static bool IsVideoStalled
-        {
-            get
-            {
-                lock (_trackingLock)
-                {
-                    if (!_isVideoPlaying)
-                        return false;
-                    return (DateTime.Now - _lastPositionChangeTime).TotalSeconds > 10;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get stalled video info string for status reporting.
-        /// Returns null if no stall detected.
-        /// </summary>
-        public static string GetVideoStallInfo()
-        {
-            lock (_trackingLock)
-            {
-                if (!_isVideoPlaying)
-                    return null;
-
-                double stallSeconds = (DateTime.Now - _lastPositionChangeTime).TotalSeconds;
-                if (stallSeconds > 10)
-                {
-                    return string.Format("Video {0} stalled at position {1} for {2:F0}s",
-                        _trackedVideoId, _lastKnownPosition, stallSeconds);
-                }
-                return null;
-            }
-        }
-
-        #endregion
-
         /// <summary>
         /// Should this be visible? Audio sets this to false.
         /// </summary>
@@ -128,11 +72,6 @@ namespace XiboClient.Rendering
         /// Stop Watchman
         /// </summary>
         private DispatcherTimer _StopWatchman;
-
-        /// <summary>
-        /// Position tracking timer for video stall detection
-        /// </summary>
-        private DispatcherTimer _positionTracker;
 
         /// <summary>
         /// Constructor
@@ -179,12 +118,6 @@ namespace XiboClient.Rendering
 
             // Open has been called.
             this._openCalled = true;
-
-            // Start position tracking for stall detection (visible videos only)
-            if (ShouldBeVisible)
-            {
-                StartPositionTracking();
-            }
 
             // If we have been given a duration, restart the timer
             // we are trying to cater for any time lost opening the media
@@ -260,9 +193,6 @@ namespace XiboClient.Rendering
                 // Failed is the opposite of open, but we mark this as open called so that our watchman doesn't also try to expire
                 this._openCalled = true;
 
-                // Stop position tracking
-                StopPositionTracking();
-
                 // Add this to a temporary blacklist so that we don't repeat it too quickly
                 CacheManager.Instance.AddUnsafeItem(UnsafeItemType.Media, UnsafeFaultCodes.VideoUnexpected, LayoutId, FileId, "Video Failed: " + e.ErrorException.Message, 120);
 
@@ -288,16 +218,9 @@ namespace XiboClient.Rendering
             {
                 this.mediaElement.Position = TimeSpan.Zero;
                 this.mediaElement.Play();
-
-                // Reset position change time so stall detection doesn't false-positive during loop restart
-                lock (_trackingLock)
-                {
-                    _lastPositionChangeTime = DateTime.Now;
-                }
             }
             else
             {
-                StopPositionTracking();
                 Expired = true;
             }
         }
@@ -479,9 +402,6 @@ namespace XiboClient.Rendering
             // We've stopped
             _stopped = true;
 
-            // Stop position tracking for stall detection
-            StopPositionTracking();
-
             // Clear the watchman
             if (_StartWatchman != null)
             {
@@ -509,73 +429,6 @@ namespace XiboClient.Rendering
 
             base.Stopped();
         }
-
-        #region Video Stall Detection Helpers
-
-        /// <summary>
-        /// Start tracking video position for stall detection
-        /// </summary>
-        private void StartPositionTracking()
-        {
-            lock (_trackingLock)
-            {
-                _isVideoPlaying = true;
-                _lastKnownPosition = TimeSpan.Zero;
-                _lastPositionChangeTime = DateTime.Now;
-                _trackedVideoId = this.Id;
-            }
-
-            _positionTracker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-            _positionTracker.Tick += (s, e) =>
-            {
-                if (mediaElement == null || _stopped)
-                {
-                    _positionTracker?.Stop();
-                    return;
-                }
-
-                try
-                {
-                    TimeSpan currentPosition = mediaElement.Position;
-                    lock (_trackingLock)
-                    {
-                        if (currentPosition != _lastKnownPosition)
-                        {
-                            _lastKnownPosition = currentPosition;
-                            _lastPositionChangeTime = DateTime.Now;
-                        }
-                    }
-                }
-                catch
-                {
-                    // MediaElement may have been disposed
-                }
-            };
-            _positionTracker.Start();
-        }
-
-        /// <summary>
-        /// Stop tracking video position
-        /// </summary>
-        private void StopPositionTracking()
-        {
-            if (_positionTracker != null)
-            {
-                _positionTracker.Stop();
-                _positionTracker = null;
-            }
-
-            lock (_trackingLock)
-            {
-                if (_trackedVideoId == this.Id)
-                {
-                    _isVideoPlaying = false;
-                    _trackedVideoId = null;
-                }
-            }
-        }
-
-        #endregion
 
         /// <summary>
         /// Override the timer tick

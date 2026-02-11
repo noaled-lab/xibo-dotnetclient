@@ -91,16 +91,6 @@ namespace XiboClient.Log
         public DateTime RenderLastActivity = DateTime.Now;
 
         /// <summary>
-        /// Is a video currently stalled?
-        /// </summary>
-        public bool IsVideoStalled { get; set; }
-
-        /// <summary>
-        /// Video stall detail info (null if no stall)
-        /// </summary>
-        public string VideoStallInfo { get; set; }
-
-        /// <summary>
         /// What is currently playing
         /// </summary>
         public string CurrentlyPlaying { get; set; }
@@ -229,13 +219,6 @@ namespace XiboClient.Log
                                 writer.WriteValue(ApplicationSettings.Default.CollectInterval.ToString());
                                 writer.WritePropertyName("renderLastActivity");
                                 writer.WriteValue(RenderLastActivity.ToString());
-                                writer.WritePropertyName("videoStalled");
-                                writer.WriteValue(IsVideoStalled);
-                                if (!string.IsNullOrEmpty(VideoStallInfo))
-                                {
-                                    writer.WritePropertyName("videoStallInfo");
-                                    writer.WriteValue(VideoStallInfo);
-                                }
                                 writer.WriteEndObject();
                             }
                         }
