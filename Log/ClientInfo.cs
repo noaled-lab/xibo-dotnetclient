@@ -86,11 +86,6 @@ namespace XiboClient.Log
         public int ControlCount;
 
         /// <summary>
-        /// Render Last Activity
-        /// </summary>
-        public DateTime RenderLastActivity = DateTime.Now;
-
-        /// <summary>
         /// What is currently playing
         /// </summary>
         public string CurrentlyPlaying { get; set; }
@@ -217,8 +212,6 @@ namespace XiboClient.Log
                                 writer.WriteValue(ApplicationSettings.Default.XmdsLastConnection.ToString());
                                 writer.WritePropertyName("xmdsCollectInterval");
                                 writer.WriteValue(ApplicationSettings.Default.CollectInterval.ToString());
-                                writer.WritePropertyName("renderLastActivity");
-                                writer.WriteValue(RenderLastActivity.ToString());
                                 writer.WriteEndObject();
                             }
                         }

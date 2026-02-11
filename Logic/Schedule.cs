@@ -302,7 +302,6 @@ namespace XiboClient
             if (agentThreadsAlive())
             {
                 // Update status marker on the main thread.
-                ClientInfo.Instance.RenderLastActivity = getRenderLastActivity();
                 ClientInfo.Instance.UpdateStatusMarkerFile(getUiLastActivity());
             }
             else
@@ -372,50 +371,6 @@ namespace XiboClient
             }
 
             return _uiLastActivity;
-        }
-
-        /// <summary>
-        /// Get the last time the rendering thread responded.
-        /// </summary>
-        /// <returns></returns>
-        private DateTime _renderLastActivity = DateTime.Now;
-        private DateTime getRenderLastActivity()
-        {
-            try
-            {
-                bool responded = false;
-                App.Current.Dispatcher.Invoke(
-                    () =>
-                    {
-                        EventHandler handler = null;
-                        handler = (s, e) =>
-                        {
-                            responded = true;
-                            System.Windows.Media.CompositionTarget.Rendering -= handler;
-                        };
-                        System.Windows.Media.CompositionTarget.Rendering += handler;
-                    },
-                    DispatcherPriority.Background,
-                    CancellationToken.None,
-                    TimeSpan.FromSeconds(5));
-
-                // Wait briefly for the rendering callback
-                if (!responded)
-                {
-                    Thread.Sleep(500);
-                }
-
-                if (responded)
-                {
-                    _renderLastActivity = DateTime.Now;
-                }
-            }
-            catch
-            {
-                // Rendering thread not responding, keep last known time
-            }
-
-            return _renderLastActivity;
         }
 
         /// <summary>
