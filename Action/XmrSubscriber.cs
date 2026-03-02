@@ -152,6 +152,8 @@ namespace XiboClient.Action
         {
             LogMessage.Audit("XmrSubscriber", "_webSocket_OnOpen", "Open");
 
+            ClientInfo.Instance.XmrSubscriberStatus = "XMR web socket open, sending handshake";
+
             // Send the init message.
             JObject message = new JObject
             {
@@ -165,7 +167,15 @@ namespace XiboClient.Action
 
         private void _webSocket_OnClose(object sender, CloseEventArgs e)
         {
-            LogMessage.Audit("XmrSubscriber", "_webSocket_OnClose", e.Reason);
+            string reason = e.Reason;
+            if (reason.IsNullOrEmpty())
+            {
+                reason = e.Code.ToString();
+            }
+
+            LogMessage.Audit("XmrSubscriber", "_webSocket_OnClose", reason);
+
+            ClientInfo.Instance.XmrSubscriberStatus = "XMR web socket closed due to " + reason;
         }
 
         private void _webSocket_OnError(object sender, ErrorEventArgs e)
@@ -314,7 +324,9 @@ namespace XiboClient.Action
         private void UpdateStatus()
         {
             // Update status
-            string statusMessage = "Connected (" + ApplicationSettings.Default.XmrNetworkAddress + "), last activity: " + DateTime.Now.ToString();
+            string statusMessage = "Connected (" 
+                + (ApplicationSettings.Default.XmrType == "ws" ? GetWsAddress() : ApplicationSettings.Default.XmrNetworkAddress) 
+                + "), last activity: " + DateTime.Now.ToString();
 
             // Write this out to a log
             ClientInfo.Instance.XmrSubscriberStatus = statusMessage;
