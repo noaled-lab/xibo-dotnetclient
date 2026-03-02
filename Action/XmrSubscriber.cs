@@ -102,12 +102,12 @@ namespace XiboClient.Action
                             else
                             {
                                 LoopForZmq();
+
+                                Trace.WriteLine(new LogMessage("XmrSubscriber - Run", "Disconnected, waiting to reconnect."), LogType.Info.ToString());
+
+                                // Update status
+                                ClientInfo.Instance.XmrSubscriberStatus = "Disconnected, waiting to reconnect, last activity: " + LastHeartBeat.ToString();
                             }
-
-                            Trace.WriteLine(new LogMessage("XmrSubscriber - Run", "Disconnected, waiting to reconnect."), LogType.Info.ToString());
-
-                            // Update status
-                            ClientInfo.Instance.XmrSubscriberStatus = "Disconnected, waiting to reconnect, last activity: " + LastHeartBeat.ToString();
                         }
                         else
                         {
@@ -175,7 +175,7 @@ namespace XiboClient.Action
 
             LogMessage.Audit("XmrSubscriber", "_webSocket_OnClose", reason);
 
-            ClientInfo.Instance.XmrSubscriberStatus = "XMR web socket closed due to " + reason;
+            ClientInfo.Instance.XmrSubscriberStatus = "Disconnected, waiting to reconnect, reason: " + reason + " last activity: " + LastHeartBeat.ToString();
         }
 
         private void _webSocket_OnError(object sender, ErrorEventArgs e)
