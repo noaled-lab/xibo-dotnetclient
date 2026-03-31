@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ApplicationSettings>
   <XmdsResetTimeout>900</XmdsResetTimeout>
   <SizeX>0</SizeX>
@@ -12,7 +12,7 @@
   <LogLocation>log.xml</LogLocation>
   <CacheManagerFile>cacheManager.xml</CacheManagerFile>
   <RequiredFilesFile>requiredFiles.xml</RequiredFilesFile>
-  <VideoRenderingEngine>WindowsMediaPlayer</VideoRenderingEngine>
+  <VideoRenderingEngine>libmpv</VideoRenderingEngine>
   <LibraryPath>DEFAULT</LibraryPath>
   <ServerKey>yourserverkey</ServerKey>
   <DisplayName>COMPUTERNAME</DisplayName>
