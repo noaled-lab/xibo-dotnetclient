@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -118,6 +118,7 @@ namespace XiboClient
             {
                 windowMain.ShowDialog();
             }
+
 #if !DEBUG
             KeyInterceptor.UnsetHook();
             MouseInterceptor.UnsetHook();

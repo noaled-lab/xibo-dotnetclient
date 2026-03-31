@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (C) 2020 Xibo Signage Ltd
  *
  * Xibo - Digital Signage - http://www.xibo.org.uk
@@ -647,6 +647,16 @@ namespace XiboClient.Rendering
         /// </summary>
         /// <param name="options"></param>
         /// <returns></returns>
+        /// <summary>
+        /// 설정된 영상 렌더링 엔진이 libmpv인지 확인.
+        /// OptionsForm의 Video Engine 드롭다운 선택값을 기준으로 판단.
+        /// </summary>
+        /// <returns>libmpv 엔진이 선택된 경우 true, WindowsMediaPlayer인 경우 false</returns>
+        private static bool IsLibMpv()
+        {
+            return string.Equals(ApplicationSettings.Default.VideoRenderingEngine, "libmpv", StringComparison.OrdinalIgnoreCase);
+        }
+
         public static Media Create(MediaOptions options)
         {
             Media media;
@@ -664,12 +674,20 @@ namespace XiboClient.Rendering
 
                 case "video":
                     options.uri = ApplicationSettings.Default.LibraryPath + @"\" + options.uri;
-                    media = new Video(options);
+                    // libmpv 엔진이면 VideoMpv, 아니면 기존 WPF MediaElement 기반 Video 사용
+                    if (IsLibMpv())
+                        media = new VideoMpv(options);
+                    else
+                        media = new Video(options);
                     break;
 
                 case "localvideo":
                     // Local video does not update the URI with the library path, it just takes what has been provided in the Widget.
-                    media = new Video(options);
+                    // libmpv 엔진이면 VideoMpv, 아니면 기존 WPF MediaElement 기반 Video 사용
+                    if (IsLibMpv())
+                        media = new VideoMpv(options);
+                    else
+                        media = new Video(options);
                     break;
 
                 case "audio":

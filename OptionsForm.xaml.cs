@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (C) 2020 Xibo Signage Ltd
  *
  * Xibo - Digital Signage - http://www.xibo.org.uk
@@ -94,6 +94,13 @@ namespace XiboClient
 
             // Appearance Tab
             textBoxSplashScreenReplacement.Text = ApplicationSettings.Default.SplashOverride;
+
+            // Video Engine 드롭다운 초기화: 설정값이 없으면 libmpv를 기본값으로 선택
+            comboBoxVideoEngine.Items.Add("WindowsMediaPlayer");
+            comboBoxVideoEngine.Items.Add("libmpv");
+            comboBoxVideoEngine.SelectedItem = string.IsNullOrEmpty(ApplicationSettings.Default.VideoRenderingEngine)
+                ? "libmpv"
+                : ApplicationSettings.Default.VideoRenderingEngine;
 
             // Switch to TLS 2.1
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
@@ -204,6 +211,8 @@ namespace XiboClient
 
                 // Client settings
                 ApplicationSettings.Default.SplashOverride = textBoxSplashScreenReplacement.Text;
+                // 선택된 Video Engine을 설정에 저장 (null인 경우 libmpv로 폴백)
+                ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "libmpv";
 
                 // Commit these changes back to the user settings
                 ApplicationSettings.Default.Save();
@@ -332,6 +341,7 @@ namespace XiboClient
 
             // Client settings
             ApplicationSettings.Default.SplashOverride = textBoxSplashScreenReplacement.Text;
+            ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "libmpv";
 
             // Commit these changes back to the user settings
             ApplicationSettings.Default.Save();
