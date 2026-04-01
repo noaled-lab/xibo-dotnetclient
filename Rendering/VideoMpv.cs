@@ -114,15 +114,6 @@ namespace XiboClient.Rendering
         }
 
         /// <summary>
-        /// mpv VO 구성 완료 이벤트. FILE_LOADED 이후 발생하며 실제 첫 프레임 렌더링 직전이다.
-        /// MpvHost 내부에서 이미 WM_PAINT를 검정으로 처리하므로 여기서는 로그만 남긴다.
-        /// </summary>
-        private void MpvHost_VideoReconfig()
-        {
-            Trace.WriteLine(new LogMessage("VideoMpv", "VideoReconfig: " + this.Id), LogType.Audit.ToString());
-        }
-
-        /// <summary>
         /// 재생 실패 이벤트. 캐시 블랙리스트에 추가하고 미디어를 만료시킨다.
         /// </summary>
         private void MpvHost_MediaFailed(string errorMessage)
@@ -143,18 +134,14 @@ namespace XiboClient.Rendering
         /// </summary>
         private void MpvHost_EndFile(int reason)
         {
-            Trace.WriteLine(new LogMessage("VideoMpv", "EndFile: " + this.Id + " reason=" + reason + " looping=" + isLooping + " stopped=" + _stopped), LogType.Audit.ToString());
+            Trace.WriteLine(new LogMessage("VideoMpv", "EndFile: " + this.Id + " reason=" + reason + " looping=" + isLooping), LogType.Audit.ToString());
 
             if (_stopped) return;
 
             if (reason == LibMpv.MPV_END_FILE_REASON_EOF)
             {
                 if (isLooping)
-                {
-                    Trace.WriteLine(new LogMessage("VideoMpv", "EndFile: " + this.Id + " – looping, SeekToStart + Play"), LogType.Audit.ToString());
                     _mpvHost?.SeekToStart();
-                    _mpvHost?.Play();
-                }
                 else
                     Expired = true;
             }
@@ -195,10 +182,9 @@ namespace XiboClient.Rendering
                 _mpvHost.Visibility = Visibility.Visible;
             }
 
-            _mpvHost.FileLoaded   += MpvHost_FileLoaded;
-            _mpvHost.VideoReconfig += MpvHost_VideoReconfig;
-            _mpvHost.MediaFailed  += MpvHost_MediaFailed;
-            _mpvHost.EndFile      += MpvHost_EndFile;
+            _mpvHost.FileLoaded  += MpvHost_FileLoaded;
+            _mpvHost.MediaFailed += MpvHost_MediaFailed;
+            _mpvHost.EndFile     += MpvHost_EndFile;
 
             if (_duration == 0)
             {
@@ -206,6 +192,11 @@ namespace XiboClient.Rendering
                 _detectEnd = true;
             }
 
+            // Start base timer and transitions (skips MediaElement setup in Video)
+            // We call Media.RenderMedia directly via base chain but Video.RenderMedia
+            // would create a MediaElement, so we call the grandparent method pattern
+            // by invoking base.RenderMedia which is Video.RenderMedia —
+            // instead we duplicate the base Media call here.
             // Render media as normal (starts the timer, shows the form, etc)
             base.RenderMedia(position);
 
@@ -275,10 +266,9 @@ namespace XiboClient.Rendering
 
             if (_mpvHost != null)
             {
-                _mpvHost.FileLoaded   -= MpvHost_FileLoaded;
-                _mpvHost.VideoReconfig -= MpvHost_VideoReconfig;
-                _mpvHost.MediaFailed  -= MpvHost_MediaFailed;
-                _mpvHost.EndFile      -= MpvHost_EndFile;
+                _mpvHost.FileLoaded  -= MpvHost_FileLoaded;
+                _mpvHost.MediaFailed -= MpvHost_MediaFailed;
+                _mpvHost.EndFile     -= MpvHost_EndFile;
                 _mpvHost.Dispose();
                 _mpvHost = null;
             }

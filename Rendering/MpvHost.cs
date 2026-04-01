@@ -58,32 +58,9 @@ namespace XiboClient.Rendering
         [DllImport("gdi32.dll")]
         private static extern IntPtr GetStockObject(int fnObject);
 
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-        private const int SW_SHOW = 5;
-        private const int SW_HIDE = 0;
-
-        // 흰색/회색 플래시 방지
+        // 흰색 플래시 방지: 창 배경 지우기 메시지를 가로채 검정으로 채운다
         private const int BLACK_BRUSH = 4;
         private const int WM_ERASEBKGND = 0x0014;
-        private const int WM_PAINT = 0x000F;
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr BeginPaint(IntPtr hWnd, out PAINTSTRUCT lpPaint);
-        [DllImport("user32.dll")]
-        private static extern bool EndPaint(IntPtr hWnd, ref PAINTSTRUCT lpPaint);
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct PAINTSTRUCT
-        {
-            public IntPtr hdc;
-            public bool fErase;
-            public RECT rcPaint;
-            public bool fRestore;
-            public bool fIncUpdate;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-            public byte[] rgbReserved;
-        }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
@@ -95,12 +72,8 @@ namespace XiboClient.Rendering
         }
 
         public event System.Action FileLoaded;
-        public event System.Action VideoReconfig;
         public event System.Action<string> MediaFailed;
         public event System.Action<int> EndFile;
-
-        // VIDEO_RECONFIG 전까지 WM_PAINT를 검정으로 처리해 회색 플래시 방지
-        private volatile bool _videoReady = false;
 
         private IntPtr _mpvHandle = IntPtr.Zero;
         private IntPtr _hwndHost = IntPtr.Zero;
@@ -140,10 +113,9 @@ namespace XiboClient.Rendering
 
             const int SS_BLACKRECT = 0x0004;
 
-            // WS_VISIBLE 없이 생성 — mpv GPU 렌더러가 VO 초기화 완료(VIDEO_RECONFIG) 후 ShowWindow로 표시
             _hwndHost = CreateWindowEx(
                 0, "STATIC", "",
-                WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | SS_BLACKRECT,
+                WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | SS_BLACKRECT,
                 0, 0, w, h,
                 hwndParent.Handle, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
 
@@ -184,26 +156,6 @@ namespace XiboClient.Rendering
                 handled = true;
                 return new IntPtr(1);
             }
-
-            // VIDEO_RECONFIG 전까지 WM_PAINT를 검정으로 처리 (mpv GPU 렌더러 초기화 중 회색 플래시 방지)
-            if (msg == WM_PAINT && !_videoReady)
-            {
-                PAINTSTRUCT ps;
-                IntPtr hdc = BeginPaint(hwnd, out ps);
-                if (hdc != IntPtr.Zero)
-                {
-                    RECT rect;
-                    if (GetClientRect(hwnd, out rect))
-                    {
-                        IntPtr hBrush = GetStockObject(BLACK_BRUSH);
-                        FillRect(hdc, ref rect, hBrush);
-                    }
-                    EndPaint(hwnd, ref ps);
-                }
-                handled = true;
-                return IntPtr.Zero;
-            }
-
             return base.WndProc(hwnd, msg, wParam, lParam, ref handled);
         }
 
@@ -233,10 +185,8 @@ namespace XiboClient.Rendering
             long wid = hwnd.ToInt64();
             LibMpv.mpv_set_option(_mpvHandle, "wid", LibMpv.MPV_FORMAT_INT64, ref wid);
 
-            // 키오스크/사이니지용: OSD·입력 비활성화
-            // keep-open=yes: EOF 후에도 마지막 프레임을 유지해 회색 창 방지.
-            // SeekToStart() + Play()로 루프를 구현할 수 있다.
-            LibMpv.mpv_set_option_string(_mpvHandle, "keep-open", "yes");
+            // 키오스크/사이니지용: OSD·입력 비활성화, 재생 종료 시 자동 닫기
+            LibMpv.mpv_set_option_string(_mpvHandle, "keep-open", "no");
             LibMpv.mpv_set_option_string(_mpvHandle, "osc", "no");
             LibMpv.mpv_set_option_string(_mpvHandle, "osd-level", "0");
             LibMpv.mpv_set_option_string(_mpvHandle, "input-default-bindings", "no");
@@ -260,13 +210,8 @@ namespace XiboClient.Rendering
 
             // Request events
             LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_LOG_MESSAGE, 1);
-            LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_START_FILE, 1);
             LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_FILE_LOADED, 1);
             LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_END_FILE, 1);
-            LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_VIDEO_RECONFIG, 1);
-
-            // keep-open=yes 상태에서 EOF를 감지하기 위해 eof-reached 프로퍼티 감시
-            LibMpv.mpv_observe_property(_mpvHandle, 1, "eof-reached", LibMpv.MPV_FORMAT_FLAG);
 
             _wakeupCallback = OnWakeup;
             LibMpv.mpv_set_wakeup_callback(_mpvHandle, _wakeupCallback, IntPtr.Zero);
@@ -321,42 +266,9 @@ namespace XiboClient.Rendering
                             }
                             break;
 
-                        case LibMpv.MPV_EVENT_START_FILE:
-                            Trace.WriteLine("MpvHost: Event START_FILE", "MpvHost");
-                            break;
-
                         case LibMpv.MPV_EVENT_FILE_LOADED:
                             Trace.WriteLine("MpvHost: Event FILE_LOADED", "MpvHost");
                             _dispatcher.BeginInvoke(new System.Action(() => FileLoaded?.Invoke()));
-                            break;
-
-                        case LibMpv.MPV_EVENT_VIDEO_RECONFIG:
-                            Trace.WriteLine("MpvHost: Event VIDEO_RECONFIG", "MpvHost");
-                            if (!_videoReady)
-                            {
-                                _videoReady = true;
-                                // 첫 VIDEO_RECONFIG: VO 구성 완료. 창을 표시해 회색 플래시 방지
-                                if (_hwndHost != IntPtr.Zero)
-                                    ShowWindow(_hwndHost, SW_SHOW);
-                            }
-                            _dispatcher.BeginInvoke(new System.Action(() => VideoReconfig?.Invoke()));
-                            break;
-
-                        case LibMpv.MPV_EVENT_PROPERTY_CHANGE:
-                            if (ev.data != IntPtr.Zero)
-                            {
-                                var prop = Marshal.PtrToStructure<LibMpv.mpv_event_property>(ev.data);
-                                if (prop.name == "eof-reached" && prop.format == LibMpv.MPV_FORMAT_FLAG && prop.data != IntPtr.Zero)
-                                {
-                                    int flag = Marshal.ReadInt32(prop.data);
-                                    Trace.WriteLine($"MpvHost: eof-reached={flag}", "MpvHost");
-                                    if (flag == 1)
-                                    {
-                                        _dispatcher.BeginInvoke(new System.Action(() =>
-                                            EndFile?.Invoke(LibMpv.MPV_END_FILE_REASON_EOF)));
-                                    }
-                                }
-                            }
                             break;
 
                         case LibMpv.MPV_EVENT_END_FILE:
@@ -379,10 +291,6 @@ namespace XiboClient.Rendering
 
                         case LibMpv.MPV_EVENT_SHUTDOWN:
                             return;
-
-                        default:
-                            Trace.WriteLine($"MpvHost: Event id={ev.event_id} (unhandled)", "MpvHost");
-                            break;
                     }
                 }
             }
@@ -397,36 +305,19 @@ namespace XiboClient.Rendering
                 return;
             }
 
-            _videoReady = false;
-            // 다음 파일 로드 시 창을 다시 숨겨 회색 플래시 방지 (VIDEO_RECONFIG에서 다시 표시됨)
-            if (_hwndHost != IntPtr.Zero)
-                ShowWindow(_hwndHost, SW_HIDE);
             Trace.WriteLine($"MpvHost: Load {filePath}", "MpvHost");
             LibMpv.Command(_mpvHandle, "loadfile", filePath);
         }
 
         public void SeekAbsolute(double seconds)
         {
-            if (_mpvHandle == IntPtr.Zero)
-            {
-                Trace.WriteLine($"MpvHost: SeekAbsolute({seconds}) – handle is null, skipping", "MpvHost");
-                return;
-            }
-            int rc = LibMpv.Command(_mpvHandle, "seek", seconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture), "absolute");
-            Trace.WriteLine($"MpvHost: SeekAbsolute({seconds}) rc={rc}", "MpvHost");
+            if (_mpvHandle == IntPtr.Zero) return;
+            LibMpv.Command(_mpvHandle, "seek", seconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture), "absolute");
         }
 
         public void SeekToStart()
         {
-            Trace.WriteLine("MpvHost: SeekToStart()", "MpvHost");
             SeekAbsolute(0);
-        }
-
-        public void Play()
-        {
-            if (_mpvHandle == IntPtr.Zero) return;
-            int rc = LibMpv.Command(_mpvHandle, "set", "pause", "no");
-            Trace.WriteLine($"MpvHost: Play() rc={rc}", "MpvHost");
         }
 
         public void SetVolume(int volume)
