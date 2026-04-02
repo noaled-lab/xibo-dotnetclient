@@ -168,6 +168,8 @@
     <Compile Include="Log\LogMessage.cs" />
     <Compile Include="Rendering\Audio.cs" />
     <Compile Include="Rendering\Flash.cs" />
+    <Compile Include="Rendering\LibMpv.cs" />
+    <Compile Include="Rendering\MpvHost.cs" />
     <Compile Include="Rendering\Image.cs" />
     <Compile Include="Rendering\Media.xaml.cs">
       <DependentUpon>Media.xaml</DependentUpon>
@@ -176,6 +178,7 @@
     <Compile Include="Rendering\ShellCommand.cs" />
     <Compile Include="Rendering\Spacer.cs" />
     <Compile Include="Rendering\Video.cs" />
+    <Compile Include="Rendering\VideoMpv.cs" />
     <Compile Include="Rendering\WebCef.cs" />
     <Compile Include="Rendering\WebEdge.cs" />
     <Compile Include="Rendering\WebIe.cs" />
@@ -366,6 +369,10 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="msvcr120.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="libmpv-2.dll">
+      <Link>libmpv-2.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="SqlServerSpatial140.dll">

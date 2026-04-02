@@ -204,6 +204,8 @@ FakesAssemblies/
 # Visual Studio 6 workspace options file
 *.opt
 
+# Build scripts
+scripts/
 
 # 노아엘이디
 # WiX build artifacts
