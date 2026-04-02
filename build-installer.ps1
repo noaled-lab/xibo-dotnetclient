@@ -5,6 +5,27 @@ param(
     [string]$Configuration = "Release"
 )
 
+function Get-MsBuildPath {
+    $candidates = @(
+        "msbuild.exe",
+        "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe",
+        "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
+        "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe",
+        "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if ($candidate -eq "msbuild.exe") {
+            $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
+            if ($cmd) { return $cmd.Source }
+        } elseif (Test-Path $candidate) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
 Write-Host "=== NOA Player MSI Installer Build ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -51,8 +72,30 @@ Write-Host ""
 
 # Build client first
 Write-Host "Building client..." -ForegroundColor Cyan
-& ".\build.ps1" -Configuration $Configuration
-if ($LASTEXITCODE -ne 0) {
+$buildSucceeded = $false
+if (Test-Path ".\build.ps1") {
+    & ".\build.ps1" -Configuration $Configuration
+    if ($LASTEXITCODE -eq 0) {
+        $buildSucceeded = $true
+    } else {
+        Write-Host "build.ps1 failed. Falling back to direct msbuild..." -ForegroundColor Yellow
+    }
+}
+
+if (-not $buildSucceeded) {
+    $msbuild = Get-MsBuildPath
+    if (-not $msbuild) {
+        Write-Host "Client build failed (msbuild not found)" -ForegroundColor Red
+        exit 1
+    }
+
+    & $msbuild "XiboClient.sln" "/t:Build" "/p:Configuration=$Configuration" "/p:Platform=x86" "/m"
+    if ($LASTEXITCODE -eq 0) {
+        $buildSucceeded = $true
+    }
+}
+
+if (-not $buildSucceeded) {
     Write-Host "Client build failed" -ForegroundColor Red
     exit 1
 }
@@ -65,8 +108,36 @@ $env:WIX = $wixPath
 # WiX Build
 Write-Host "Building MSI package..." -ForegroundColor Cyan
 
-$binPath = "bin\$Configuration"
+$binPath = "bin\x86\$Configuration"
 $solutionDir = (Get-Location).Path
+$outputDir = Join-Path $solutionDir $binPath
+$productVersion = "4.40.53"
+
+# Ensure libmpv-2.dll is present in output so MSI always includes it.
+$mpvDllTarget = Join-Path $outputDir "libmpv-2.dll"
+if (-not (Test-Path $mpvDllTarget)) {
+    $dllCandidates = @(
+        (Join-Path $solutionDir "libmpv-2.dll"),
+        "C:\workbench\mpv-dll\mpv-dev-i686-20260331-git-9465b30\libmpv-2.dll",
+        "C:\workbench\mpv\mpv-dev-i686-20260331-git-9465b30\libmpv-2.dll"
+    )
+
+    $mpvDllSource = $dllCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if (-not $mpvDllSource) {
+        $mpvDllSource = Get-ChildItem "C:\workbench\mpv-dll" -Filter "libmpv-2.dll" -File -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName -First 1
+    }
+
+    if ($mpvDllSource) {
+        Copy-Item -Path $mpvDllSource -Destination $mpvDllTarget -Force
+        Write-Host "libmpv-2.dll copied to output: $mpvDllTarget" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: libmpv-2.dll source not found. MSI may be built without mpv DLL." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "libmpv-2.dll already exists in output: $mpvDllTarget" -ForegroundColor Green
+}
 
 # Use Heat to automatically include all files (DLLs, etc.)
 Write-Host "Scanning dependency files..." -ForegroundColor Cyan
@@ -81,7 +152,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Compile .wixobj with candle
 $wixObjFile = "installer.wixobj"
-& $candle "installer.wxs" -out $wixObjFile -dSourceDir="$solutionDir\$binPath"
+& $candle "installer.wxs" -out $wixObjFile -dSourceDir="$solutionDir\$binPath" -dProductVersion="$productVersion"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "WiX compilation failed" -ForegroundColor Red
     if ($heatFragment -and (Test-Path $heatFragment)) {
@@ -95,7 +166,7 @@ $heatObjFile = $null
 if ($heatFragment -and (Test-Path $heatFragment)) {
     Write-Host "Compiling dependency fragment..." -ForegroundColor Cyan
     $heatObjFile = "heat-fragment.wixobj"
-    & $candle $heatFragment -out $heatObjFile -dSourceDir="$solutionDir\$binPath"
+    & $candle $heatFragment -out $heatObjFile -dSourceDir="$solutionDir\$binPath" -dProductVersion="$productVersion"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Heat Fragment compilation failed" -ForegroundColor Red
         Remove-Item $heatFragment -ErrorAction SilentlyContinue
