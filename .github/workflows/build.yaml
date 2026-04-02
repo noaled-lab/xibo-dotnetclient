@@ -51,10 +51,19 @@ jobs:
     
     - uses: microsoft/setup-msbuild@v2
 
+    - name: Cache libmpv-2.dll (x86)
+      id: cache-mpv
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}\mpvdev\${{ env.MPV_DEV_VERSION }}
+        key: mpv-dev-i686-${{ env.MPV_DEV_VERSION }}-v1
+
     - name: Download libmpv-2.dll (x86) from shinchiro releases
+      if: steps.cache-mpv.outputs.cache-hit != 'true'
       shell: powershell
       run: |
         $version = "$env:MPV_DEV_VERSION"
+        $cacheDir = "${{ runner.temp }}\mpvdev\$version"
         $assetNamePattern = "^mpv-dev-i686-$([regex]::Escape($version))\.(7z|zip)$"
         Write-Host "Resolving fixed mpv version: $version"
 
@@ -110,7 +119,23 @@ jobs:
           exit 1
         }
 
-        Copy-Item -Path $dll.FullName -Destination (Join-Path $PWD "libmpv-2.dll") -Force
+        New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+        Copy-Item -Path $dll.FullName -Destination (Join-Path $cacheDir "libmpv-2.dll") -Force
+        Write-Host "libmpv-2.dll cached at $cacheDir"
+
+    - name: Prepare libmpv-2.dll from cache
+      shell: powershell
+      run: |
+        $version = "$env:MPV_DEV_VERSION"
+        $cacheDir = "${{ runner.temp }}\mpvdev\$version"
+        $cachedDll = Join-Path $cacheDir "libmpv-2.dll"
+
+        if (-not (Test-Path $cachedDll)) {
+          Write-Error "Cached libmpv-2.dll not found at: $cachedDll"
+          exit 1
+        }
+
+        Copy-Item -Path $cachedDll -Destination (Join-Path $PWD "libmpv-2.dll") -Force
         Write-Host "libmpv-2.dll prepared at repository root"
 
     - name : Restore Packages
