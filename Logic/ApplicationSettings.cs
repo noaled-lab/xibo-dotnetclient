@@ -383,6 +383,10 @@ namespace XiboClient
         public string CacheManagerFile { get; set; }
         public string RequiredFilesFile { get; set; }
         public string VideoRenderingEngine { get; set; }
+        public bool MpvUseTimingGuard { get; set; }
+        public string MpvVo { get; set; }
+        public string MpvHwdec { get; set; }
+        public string MpvExtraOptions { get; set; }
         public string NewCmsAddress { get; set; }
         public string NewCmsKey { get; set; }
         public string XmdsCheckSchedule { get; set; }
