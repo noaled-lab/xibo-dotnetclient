@@ -371,7 +371,7 @@
     <Content Include="msvcr120.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="c:\workbench\mpv\mpv-dev-i686-20260331-git-9465b30\libmpv-2.dll">
+    <Content Include="c:\workbench\mpv-dll\mpv-dev-i686-20260331-git-9465b30\libmpv-2.dll">
       <Link>libmpv-2.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
