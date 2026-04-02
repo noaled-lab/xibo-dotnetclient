@@ -206,3 +206,10 @@ FakesAssemblies/
 
 # Build scripts
 scripts/
+
+# 노아엘이디
+# WiX build artifacts
+*.msi
+*.wixpdb
+*.wixobj
+heat-fragment.wxs

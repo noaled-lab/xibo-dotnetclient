@@ -35,7 +35,7 @@
   <ClientInformationKeyCode>I</ClientInformationKeyCode>
   <Licensed>0</Licensed>
   <StatsFlushCount>10</StatsFlushCount>
-  <CollectInterval>900</CollectInterval>
+  <CollectInterval>60</CollectInterval>
   <MaxConcurrentDownloads>5</MaxConcurrentDownloads>
   <MaxLogFileUploads>5</MaxLogFileUploads>
   <PowerpointEnabled>false</PowerpointEnabled>
