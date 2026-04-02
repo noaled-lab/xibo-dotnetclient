@@ -13,7 +13,7 @@
   <CacheManagerFile>cacheManager.xml</CacheManagerFile>
   <RequiredFilesFile>requiredFiles.xml</RequiredFilesFile>
   <VideoRenderingEngine>libmpv</VideoRenderingEngine>
-  <MpvUseTimingGuard>false</MpvUseTimingGuard>
+  <MpvUseTimingGuard>true</MpvUseTimingGuard>
   <MpvVo>direct3d</MpvVo>
   <MpvHwdec>auto-safe</MpvHwdec>
   <MpvExtraOptions></MpvExtraOptions>
