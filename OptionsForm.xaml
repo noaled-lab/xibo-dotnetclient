@@ -49,6 +49,22 @@
                     <Label Content="Video Engine" HorizontalAlignment="Left" Margin="54,216,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2" Grid.Column="0"/>
                 </Grid>
             </TabItem>
+            <TabItem x:Name="tabItemMpv" Header="MPV">
+                <Grid Background="#FFE5E5E5" Margin="0,0,0,90">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="91*"/>
+                        <ColumnDefinition Width="675*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Content="Video Output (vo)" HorizontalAlignment="Left" Margin="54,16,0,0" VerticalAlignment="Top" Width="140" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                    <ComboBox x:Name="comboBoxMpvVo" HorizontalAlignment="Left" Height="35" Margin="83,16,0,0" VerticalAlignment="Top" Width="200" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center" IsEditable="False"/>
+                    <Label Content="HW Decoding (hwdec)" HorizontalAlignment="Left" Margin="54,56,0,0" VerticalAlignment="Top" Width="170" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                    <ComboBox x:Name="comboBoxMpvHwdec" HorizontalAlignment="Left" Height="35" Margin="83,56,0,0" VerticalAlignment="Top" Width="200" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center" IsEditable="False"/>
+                    <CheckBox x:Name="checkBoxMpvTimingGuard" Content="Use window timing guard (hide/show around VIDEO_RECONFIG)" HorizontalAlignment="Left" Margin="83,96,0,0" VerticalAlignment="Top" Width="520" Height="24" Grid.Column="1" FontSize="13"/>
+                    <Label Content="Extra Options" HorizontalAlignment="Left" Margin="54,130,0,0" VerticalAlignment="Top" Width="140" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                    <TextBox x:Name="textBoxMpvExtraOptions" HorizontalAlignment="Left" Height="90" Margin="83,130,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="13" VerticalContentAlignment="Top" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    <Label Content="(key=value 한 줄씩, 예: hwdec-codecs=h264)" HorizontalAlignment="Left" Margin="83,224,0,0" VerticalAlignment="Top" Width="400" Height="24" FontSize="11" Foreground="Gray" Grid.Column="1"/>
+                </Grid>
+            </TabItem>
             <TabItem Header="About">
                 <Grid Background="#FFE5E5E5" Margin="0,0,0,85">
                     <Image Height="100" Width="100" Source="Resources/logo.png" Margin="656,10,10,104"/>

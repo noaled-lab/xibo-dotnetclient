@@ -34,6 +34,9 @@ namespace XiboClient.Rendering
     /// </summary>
     internal class MpvHost : HwndHost
     {
+        // Runtime-configurable guard to hide/show the host window around VO init.
+        private readonly bool _useWindowTimingGuard;
+
         private const int WS_CHILD    = 0x40000000;
         private const int WS_VISIBLE  = 0x10000000;
         private const int WS_CLIPCHILDREN = 0x02000000;
@@ -128,6 +131,7 @@ namespace XiboClient.Rendering
         public MpvHost()
         {
             _dispatcher = Dispatcher.CurrentDispatcher;
+            _useWindowTimingGuard = ApplicationSettings.Default.MpvUseTimingGuard;
             Trace.WriteLine("MpvHost: Constructor", "MpvHost");
         }
 
@@ -140,10 +144,14 @@ namespace XiboClient.Rendering
 
             const int SS_BLACKRECT = 0x0004;
 
-            // WS_VISIBLE 없이 생성 — mpv GPU 렌더러가 VO 초기화 완료(VIDEO_RECONFIG) 후 ShowWindow로 표시
+            int style = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | SS_BLACKRECT;
+            if (!_useWindowTimingGuard)
+                style |= WS_VISIBLE;
+
+            // Guard mode: create hidden and reveal on first VIDEO_RECONFIG.
             _hwndHost = CreateWindowEx(
                 0, "STATIC", "",
-                WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | SS_BLACKRECT,
+                style,
                 0, 0, w, h,
                 hwndParent.Handle, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
 
@@ -186,7 +194,7 @@ namespace XiboClient.Rendering
             }
 
             // VIDEO_RECONFIG 전까지 WM_PAINT를 검정으로 처리 (mpv GPU 렌더러 초기화 중 회색 플래시 방지)
-            if (msg == WM_PAINT && !_videoReady)
+            if (_useWindowTimingGuard && msg == WM_PAINT && !_videoReady)
             {
                 PAINTSTRUCT ps;
                 IntPtr hdc = BeginPaint(hwnd, out ps);
@@ -221,39 +229,77 @@ namespace XiboClient.Rendering
         {
             Trace.WriteLine("MpvHost: InitMpv starting", "MpvHost");
 
+            int SetOptionStringChecked(string name, string value, bool required = false)
+            {
+                int rc = LibMpv.mpv_set_option_string(_mpvHandle, name, value);
+                if (rc < 0)
+                {
+                    string msg = $"MpvHost: mpv_set_option_string failed ({name}={value}) rc={rc}";
+                    Trace.WriteLine(msg, "MpvHost");
+                    if (required)
+                        throw new InvalidOperationException(msg);
+                }
+                return rc;
+            }
+
             _mpvHandle = LibMpv.mpv_create();
             if (_mpvHandle == IntPtr.Zero)
                 throw new InvalidOperationException("mpv_create() returned NULL.");
 
             // 콘솔 출력 비활성화 / 로그는 Trace로만 수집
-            LibMpv.mpv_set_option_string(_mpvHandle, "terminal", "no");
-            LibMpv.mpv_set_option_string(_mpvHandle, "msg-level", "all=v");
+            SetOptionStringChecked("terminal", "no");
+            SetOptionStringChecked("msg-level", "all=v");
 
             // 호스트 창 핸들을 mpv에 전달해 해당 창 안에 렌더링
             long wid = hwnd.ToInt64();
-            LibMpv.mpv_set_option(_mpvHandle, "wid", LibMpv.MPV_FORMAT_INT64, ref wid);
+            int widRc = LibMpv.mpv_set_option(_mpvHandle, "wid", LibMpv.MPV_FORMAT_INT64, ref wid);
+            if (widRc < 0)
+                throw new InvalidOperationException("MpvHost: mpv_set_option(wid) failed rc=" + widRc);
 
             // 키오스크/사이니지용: OSD·입력 비활성화
             // keep-open=yes: EOF 후에도 마지막 프레임을 유지해 회색 창 방지.
             // SeekToStart() + Play()로 루프를 구현할 수 있다.
-            LibMpv.mpv_set_option_string(_mpvHandle, "keep-open", "yes");
-            LibMpv.mpv_set_option_string(_mpvHandle, "osc", "no");
-            LibMpv.mpv_set_option_string(_mpvHandle, "osd-level", "0");
-            LibMpv.mpv_set_option_string(_mpvHandle, "input-default-bindings", "no");
-            LibMpv.mpv_set_option_string(_mpvHandle, "input-vo-keyboard", "no");
+            SetOptionStringChecked("keep-open", "yes", required: true);
+            SetOptionStringChecked("osc", "no");
+            SetOptionStringChecked("osd-level", "0");
+            SetOptionStringChecked("input-default-bindings", "no");
+            SetOptionStringChecked("input-vo-keyboard", "no");
 
-            // GPU 우선, 실패 시 direct3d로 폴백 / 하드웨어 디코딩 자동 선택
-            LibMpv.mpv_set_option_string(_mpvHandle, "vo", "gpu,direct3d");
-            LibMpv.mpv_set_option_string(_mpvHandle, "hwdec", "auto-safe");
-            
-            // mpv 렌더러 배경색을 강제로 검정색 지정 (흰색 화면 깜빡임 방지용)
-            LibMpv.mpv_set_option_string(_mpvHandle, "background", "#000000");
+            // vo / hwdec: Player Options의 MPV 탭에서 설정한 값 사용
+            string vo = ApplicationSettings.Default.MpvVo;
+            if (string.IsNullOrWhiteSpace(vo)) vo = "direct3d";
+            SetOptionStringChecked("vo", vo, required: true);
 
-            int rc = LibMpv.mpv_initialize(_mpvHandle);
-            if (rc < 0)
+            string hwdec = ApplicationSettings.Default.MpvHwdec;
+            if (string.IsNullOrWhiteSpace(hwdec)) hwdec = "auto-safe";
+            SetOptionStringChecked("hwdec", hwdec);
+
+            // 배경 옵션은 mode/background-color로 분리되어 있어 둘 다 지정해야 한다.
+            SetOptionStringChecked("background", "color");
+            SetOptionStringChecked("background-color", "#000000");
+
+            // 추가 옵션: "key=value" 한 줄씩
+            string extra = ApplicationSettings.Default.MpvExtraOptions;
+            if (!string.IsNullOrWhiteSpace(extra))
             {
-                Trace.WriteLine($"MpvHost: mpv_initialize failed: {rc}", "MpvHost");
-                throw new InvalidOperationException("mpv_initialize() failed: " + rc);
+                foreach (string line in extra.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    int eq = line.IndexOf('=');
+                    if (eq > 0)
+                    {
+                        string key = line.Substring(0, eq).Trim();
+                        string val = line.Substring(eq + 1).Trim();
+                        if (!string.IsNullOrEmpty(key))
+                            SetOptionStringChecked(key, val);
+                    }
+                }
+            }
+
+            int initRc = LibMpv.mpv_initialize(_mpvHandle);
+            if (initRc < 0)
+            {
+                Trace.WriteLine($"MpvHost: mpv_initialize failed: {initRc}", "MpvHost");
+                throw new InvalidOperationException("mpv_initialize() failed: " + initRc);
             }
 
             Trace.WriteLine("MpvHost: mpv_initialize success", "MpvHost");
@@ -336,7 +382,7 @@ namespace XiboClient.Rendering
                             {
                                 _videoReady = true;
                                 // 첫 VIDEO_RECONFIG: VO 구성 완료. 창을 표시해 회색 플래시 방지
-                                if (_hwndHost != IntPtr.Zero)
+                                if (_useWindowTimingGuard && _hwndHost != IntPtr.Zero)
                                     ShowWindow(_hwndHost, SW_SHOW);
                             }
                             _dispatcher.BeginInvoke(new System.Action(() => VideoReconfig?.Invoke()));
@@ -399,7 +445,7 @@ namespace XiboClient.Rendering
 
             _videoReady = false;
             // 다음 파일 로드 시 창을 다시 숨겨 회색 플래시 방지 (VIDEO_RECONFIG에서 다시 표시됨)
-            if (_hwndHost != IntPtr.Zero)
+            if (_useWindowTimingGuard && _hwndHost != IntPtr.Zero)
                 ShowWindow(_hwndHost, SW_HIDE);
             Trace.WriteLine($"MpvHost: Load {filePath}", "MpvHost");
             LibMpv.Command(_mpvHandle, "loadfile", filePath);

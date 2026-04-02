@@ -13,6 +13,10 @@
   <CacheManagerFile>cacheManager.xml</CacheManagerFile>
   <RequiredFilesFile>requiredFiles.xml</RequiredFilesFile>
   <VideoRenderingEngine>libmpv</VideoRenderingEngine>
+  <MpvUseTimingGuard>false</MpvUseTimingGuard>
+  <MpvVo>direct3d</MpvVo>
+  <MpvHwdec>auto-safe</MpvHwdec>
+  <MpvExtraOptions></MpvExtraOptions>
   <LibraryPath>DEFAULT</LibraryPath>
   <ServerKey>yourserverkey</ServerKey>
   <DisplayName>COMPUTERNAME</DisplayName>
