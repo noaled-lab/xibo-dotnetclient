@@ -7,6 +7,7 @@ jobs:
     env:
       BASE_VERSION: "4.40.53"
       VERSION: "4.40.53.${{ github.run_number }}"
+      MPV_DEV_VERSION: "20260331-git-9465b30"
     steps:
     - uses: actions/checkout@v4
     
@@ -49,6 +50,93 @@ jobs:
         }
     
     - uses: microsoft/setup-msbuild@v2
+
+    - name: Cache libmpv-2.dll (x86)
+      id: cache-mpv
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}\mpvdev\${{ env.MPV_DEV_VERSION }}
+        key: mpv-dev-i686-${{ env.MPV_DEV_VERSION }}-v1
+
+    - name: Download libmpv-2.dll (x86) from shinchiro releases
+      if: steps.cache-mpv.outputs.cache-hit != 'true'
+      shell: powershell
+      run: |
+        $version = "$env:MPV_DEV_VERSION"
+        $cacheDir = "${{ runner.temp }}\mpvdev\$version"
+        $assetNamePattern = "^mpv-dev-i686-$([regex]::Escape($version))\.(7z|zip)$"
+        Write-Host "Resolving fixed mpv version: $version"
+
+        $api = "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases?per_page=100"
+        $releases = Invoke-RestMethod -Uri $api -Headers @{ Accept = "application/vnd.github+json" }
+
+        $asset = $null
+        foreach ($release in $releases) {
+          $candidate = $release.assets |
+            Where-Object { $_.name -match $assetNamePattern } |
+            Select-Object -First 1
+          if ($candidate) {
+            $asset = $candidate
+            break
+          }
+        }
+
+        if (-not $asset) {
+          Write-Error "Could not find x86 mpv-dev asset for fixed version: $version"
+          exit 1
+        }
+
+        $archive = Join-Path $PWD $asset.name
+        $extractDir = Join-Path $PWD "mpv-dev-extract"
+
+        Write-Host "Downloading $($asset.name)"
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive -UseBasicParsing
+
+        if (Test-Path $extractDir) {
+          Remove-Item -Recurse -Force $extractDir
+        }
+        New-Item -ItemType Directory -Path $extractDir | Out-Null
+
+        if ($archive.EndsWith(".zip")) {
+          Expand-Archive -Path $archive -DestinationPath $extractDir -Force
+        } else {
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+          if (-not (Test-Path $sevenZip)) {
+            $sevenZip = "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
+          }
+          if (-not (Test-Path $sevenZip)) {
+            Write-Error "7-Zip executable not found on runner."
+            exit 1
+          }
+          & $sevenZip x $archive "-o$extractDir" -y | Out-Null
+        }
+
+        $dll = Get-ChildItem -Path $extractDir -Filter "libmpv-2.dll" -File -Recurse -ErrorAction SilentlyContinue |
+          Select-Object -First 1
+
+        if (-not $dll) {
+          Write-Error "libmpv-2.dll not found in extracted archive."
+          exit 1
+        }
+
+        New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+        Copy-Item -Path $dll.FullName -Destination (Join-Path $cacheDir "libmpv-2.dll") -Force
+        Write-Host "libmpv-2.dll cached at $cacheDir"
+
+    - name: Prepare libmpv-2.dll from cache
+      shell: powershell
+      run: |
+        $version = "$env:MPV_DEV_VERSION"
+        $cacheDir = "${{ runner.temp }}\mpvdev\$version"
+        $cachedDll = Join-Path $cacheDir "libmpv-2.dll"
+
+        if (-not (Test-Path $cachedDll)) {
+          Write-Error "Cached libmpv-2.dll not found at: $cachedDll"
+          exit 1
+        }
+
+        Copy-Item -Path $cachedDll -Destination (Join-Path $PWD "libmpv-2.dll") -Force
+        Write-Host "libmpv-2.dll prepared at repository root"
 
     - name : Restore Packages
       run: msbuild XiboClient.sln /t:Restore /p:Configuration=Release /p:Platform="x86"

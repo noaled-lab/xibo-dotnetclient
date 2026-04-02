@@ -6,7 +6,8 @@
              xmlns:local="clr-namespace:XiboClient.Rendering"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
-    <Grid x:Name="MediaScene">
-            
+    <!-- 동영상 전환 간 흰색 화면 방지를 위해 배경을 검정으로 설정 -->
+    <Grid x:Name="MediaScene" Background="Black">
+
     </Grid>
 </UserControl>
