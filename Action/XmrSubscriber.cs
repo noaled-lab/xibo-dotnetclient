@@ -206,7 +206,13 @@ namespace XiboClient.Action
             }
             catch (Exception e)
             {
-                Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Unopenable Message: " + e.Message), LogType.Error.ToString());
+                System.Text.StringBuilder frameLog = new System.Text.StringBuilder();
+                frameLog.Append("frameCount=" + message.FrameCount);
+                for (int i = 0; i < message.FrameCount; i++)
+                    frameLog.Append(" frame[" + i + "](bytes=" + message[i].MessageSize + ")=" + Convert.ToBase64String(message[i].ToByteArray()));
+                Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Unopenable Message: " + e.Message
+                    + " rsaKeyType=" + (rsaKey?.Private?.GetType()?.Name ?? "null")
+                    + " " + frameLog), LogType.Error.ToString());
                 Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", e.ToString()), LogType.Audit.ToString());
                 return;
             }
