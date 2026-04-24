@@ -103,6 +103,14 @@ namespace XiboClient
                 : ApplicationSettings.Default.VideoRenderingEngine;
             comboBoxVideoEngine.SelectionChanged += ComboBoxVideoEngine_SelectionChanged;
 
+            comboBoxLogLevel.Items.Add("off");
+            comboBoxLogLevel.Items.Add("error");
+            comboBoxLogLevel.Items.Add("info");
+            comboBoxLogLevel.Items.Add("audit");
+            comboBoxLogLevel.SelectedItem = string.IsNullOrEmpty(ApplicationSettings.Default.LogLevel)
+                ? "error"
+                : ApplicationSettings.Default.LogLevel;
+
             // MPV 탭 초기화
             comboBoxMpvVo.Items.Add("direct3d");
             comboBoxMpvVo.Items.Add("gpu");
@@ -235,6 +243,7 @@ namespace XiboClient
                 ApplicationSettings.Default.SplashOverride = textBoxSplashScreenReplacement.Text;
                 // 선택된 Video Engine을 설정에 저장 (null인 경우 libmpv로 폴백)
                 ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "libmpv";
+                ApplicationSettings.Default.LogLevel = comboBoxLogLevel.SelectedItem?.ToString() ?? "error";
 
                 // MPV 옵션 저장
                 ApplicationSettings.Default.MpvVo = comboBoxMpvVo.SelectedItem?.ToString() ?? "direct3d";
@@ -370,6 +379,7 @@ namespace XiboClient
             // Client settings
             ApplicationSettings.Default.SplashOverride = textBoxSplashScreenReplacement.Text;
             ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "libmpv";
+            ApplicationSettings.Default.LogLevel = comboBoxLogLevel.SelectedItem?.ToString() ?? "error";
 
             // MPV 옵션 저장
             ApplicationSettings.Default.MpvVo = comboBoxMpvVo.SelectedItem?.ToString() ?? "direct3d";
