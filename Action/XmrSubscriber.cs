@@ -198,6 +198,10 @@ namespace XiboClient.Action
                 return;
             }
 
+            // Log incoming non-heartbeat messages in the same frame format used for failures.
+            string frameLog = BuildFrameLog(message);
+            Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Incoming Message: " + frameLog), LogType.Error.ToString());
+
             // Decrypt the message
             string opened;
             try
@@ -206,10 +210,6 @@ namespace XiboClient.Action
             }
             catch (Exception e)
             {
-                System.Text.StringBuilder frameLog = new System.Text.StringBuilder();
-                frameLog.Append("frameCount=" + message.FrameCount);
-                for (int i = 0; i < message.FrameCount; i++)
-                    frameLog.Append(" frame[" + i + "](bytes=" + message[i].MessageSize + ")=" + Convert.ToBase64String(message[i].ToByteArray()));
                 Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Unopenable Message: " + e.Message
                     + " rsaKeyType=" + (rsaKey?.Private?.GetType()?.Name ?? "null")
                     + " " + frameLog), LogType.Error.ToString());
@@ -294,6 +294,18 @@ namespace XiboClient.Action
                     Trace.WriteLine(new LogMessage("XmrSubscriber - Run", "Unknown Message: " + action.action), LogType.Info.ToString());
                     break;
             }
+        }
+
+        private static string BuildFrameLog(NetMQMessage message)
+        {
+            System.Text.StringBuilder frameLog = new System.Text.StringBuilder();
+            frameLog.Append("frameCount=" + message.FrameCount);
+            for (int i = 0; i < message.FrameCount; i++)
+            {
+                frameLog.Append(" frame[" + i + "](bytes=" + message[i].MessageSize + ")=" + Convert.ToBase64String(message[i].ToByteArray()));
+            }
+
+            return frameLog.ToString();
         }
 
         /// <summary>
