@@ -7,7 +7,7 @@ jobs:
     env:
       BASE_VERSION: "4.40.53"
       VERSION: "4.40.53.${{ github.run_number }}"
-      MPV_DEV_VERSION: "20260331-git-9465b30"
+      MPV_DEV_VERSION: "20260421-git-5921fe5"
     steps:
     - uses: actions/checkout@v4
     
@@ -51,20 +51,20 @@ jobs:
     
     - uses: microsoft/setup-msbuild@v2
 
-    - name: Cache libmpv-2.dll (x86)
+    - name: Cache libmpv-2.dll (x64)
       id: cache-mpv
       uses: actions/cache@v4
       with:
         path: ${{ runner.temp }}\mpvdev\${{ env.MPV_DEV_VERSION }}
-        key: mpv-dev-i686-${{ env.MPV_DEV_VERSION }}-v1
+        key: mpv-dev-x86_64-${{ env.MPV_DEV_VERSION }}-v1
 
-    - name: Download libmpv-2.dll (x86) from shinchiro releases
+    - name: Download libmpv-2.dll (x64) from shinchiro releases
       if: steps.cache-mpv.outputs.cache-hit != 'true'
       shell: powershell
       run: |
         $version = "$env:MPV_DEV_VERSION"
         $cacheDir = "${{ runner.temp }}\mpvdev\$version"
-        $assetNamePattern = "^mpv-dev-i686-$([regex]::Escape($version))\.(7z|zip)$"
+        $assetNamePattern = "^mpv-dev-x86_64-$([regex]::Escape($version))\.(7z|zip)$"
         Write-Host "Resolving fixed mpv version: $version"
 
         $api = "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases?per_page=100"
@@ -82,7 +82,7 @@ jobs:
         }
 
         if (-not $asset) {
-          Write-Error "Could not find x86 mpv-dev asset for fixed version: $version"
+          Write-Error "Could not find x64 mpv-dev asset for fixed version: $version"
           exit 1
         }
 
@@ -139,10 +139,10 @@ jobs:
         Write-Host "libmpv-2.dll prepared at repository root"
 
     - name : Restore Packages
-      run: msbuild XiboClient.sln /t:Restore /p:Configuration=Release /p:Platform="x86"
+      run: msbuild XiboClient.sln /t:Restore /p:Configuration=Release /p:Platform="x64"
     
     - name: Build Solution
-      run: msbuild XiboClient.sln /p:Configuration=Release /p:Platform="x86"
+      run: msbuild XiboClient.sln /p:Configuration=Release /p:Platform="x64"
 
     - name: Cache WiX Toolset 3.11
       id: cache-wix
@@ -169,7 +169,7 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Generating dependencies fragment..."
-        $binPath = "bin\x86\Release"
+        $binPath = "bin\x64\Release"
         $solutionDir = (Get-Location).Path
         .\wix\heat.exe dir $binPath -cg Dependencies -gg -srd -sfrag -dr PlayerFolder -var var.SourceDir -out heat-fragment.wxs
 
@@ -178,7 +178,7 @@ jobs:
       run: |
         Write-Host "Compiling WiX objects..."
         $solutionDir = (Get-Location).Path
-        $binPath = "bin\x86\Release"
+        $binPath = "bin\x64\Release"
         $version = "$env:VERSION"
         Write-Host "Building version: $version"
         .\wix\candle.exe installer.wxs -out installer.wixobj -dSourceDir="$solutionDir\$binPath" -dProductVersion="$version"
