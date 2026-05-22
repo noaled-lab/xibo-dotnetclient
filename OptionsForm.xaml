@@ -29,25 +29,29 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Advanced">
-                <Grid Background="#FFE5E5E5" Margin="0,0,0,90">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="91*"/>
-                        <ColumnDefinition Width="675*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="textBoxProxyUser" HorizontalAlignment="Left" Height="35" Margin="83,16,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
-                    <Label Content="Proxy User" HorizontalAlignment="Left" Margin="54,16,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
-                    <PasswordBox x:Name="textBoxProxyPass" HorizontalAlignment="Left" Height="35" Margin="83,56,0,0" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
-                    <Label Content="Proxy Password" HorizontalAlignment="Left" Margin="54,56,0,0" VerticalAlignment="Top" Width="120" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
-                    <TextBox x:Name="textBoxProxyDomain" HorizontalAlignment="Left" Height="35" Margin="83,96,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
-                    <Label Content="Proxy Domain" HorizontalAlignment="Left" Margin="54,98,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
-                    <TextBox x:Name="textBoxHardwareKey" HorizontalAlignment="Left" Height="35" Margin="83,136,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
-                    <Label Content="Hardware Key" HorizontalAlignment="Left" Margin="54,137,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
-                    <TextBox x:Name="textBoxSplashScreenReplacement" HorizontalAlignment="Left" Height="35" Margin="83,176,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="467" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
-                    <Label Content="Splash Screen" HorizontalAlignment="Left" Margin="54,176,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2" RenderTransformOrigin="0.519,-1.218"/>
-                    <Button x:Name="buttonSplashScreenReplacement" Content="Browse" Grid.Column="1" HorizontalAlignment="Left" Margin="555,176,0,0" VerticalAlignment="Top" Width="110" Height="35" Click="Button_SplashScreenReplacement_Click"/>
-                    <ComboBox x:Name="comboBoxVideoEngine" HorizontalAlignment="Left" Height="35" Margin="83,216,0,0" VerticalAlignment="Top" Width="200" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center" IsEditable="False"/>
-                    <Label Content="Video Engine" HorizontalAlignment="Left" Margin="54,216,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2" Grid.Column="0"/>
-                </Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="#FFE5E5E5" Margin="0,0,0,50">
+                    <Grid MinHeight="340">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="91*"/>
+                            <ColumnDefinition Width="675*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="textBoxProxyUser" HorizontalAlignment="Left" Height="35" Margin="83,16,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
+                        <Label Content="Proxy User" HorizontalAlignment="Left" Margin="54,16,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                        <PasswordBox x:Name="textBoxProxyPass" HorizontalAlignment="Left" Height="35" Margin="83,56,0,0" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
+                        <Label Content="Proxy Password" HorizontalAlignment="Left" Margin="54,56,0,0" VerticalAlignment="Top" Width="120" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                        <TextBox x:Name="textBoxProxyDomain" HorizontalAlignment="Left" Height="35" Margin="83,96,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
+                        <Label Content="Proxy Domain" HorizontalAlignment="Left" Margin="54,98,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                        <TextBox x:Name="textBoxHardwareKey" HorizontalAlignment="Left" Height="35" Margin="83,136,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="582" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
+                        <Label Content="Hardware Key" HorizontalAlignment="Left" Margin="54,137,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2"/>
+                        <TextBox x:Name="textBoxSplashScreenReplacement" HorizontalAlignment="Left" Height="35" Margin="83,176,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="467" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center"/>
+                        <Label Content="Splash Screen" HorizontalAlignment="Left" Margin="54,176,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2" RenderTransformOrigin="0.519,-1.218"/>
+                        <Button x:Name="buttonSplashScreenReplacement" Content="Browse" Grid.Column="1" HorizontalAlignment="Left" Margin="555,176,0,0" VerticalAlignment="Top" Width="110" Height="35" Click="Button_SplashScreenReplacement_Click"/>
+                        <ComboBox x:Name="comboBoxVideoEngine" HorizontalAlignment="Left" Height="35" Margin="83,216,0,0" VerticalAlignment="Top" Width="200" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center" IsEditable="False"/>
+                        <Label Content="Video Engine" HorizontalAlignment="Left" Margin="54,216,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2" Grid.Column="0"/>
+                        <ComboBox x:Name="comboBoxLogLevel" HorizontalAlignment="Left" Height="35" Margin="83,256,0,0" VerticalAlignment="Top" Width="200" Grid.Column="1" FontSize="16" VerticalContentAlignment="Center" IsEditable="False"/>
+                        <Label Content="Log Level" HorizontalAlignment="Left" Margin="54,256,0,0" VerticalAlignment="Top" Width="110" Height="34" FontSize="16" Grid.ColumnSpan="2" Grid.Column="0"/>
+                    </Grid>
+                </ScrollViewer>
             </TabItem>
             <TabItem x:Name="tabItemMpv" Header="MPV">
                 <Grid Background="#FFE5E5E5" Margin="0,0,0,90">

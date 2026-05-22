@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (C) 2024 Xibo Signage Ltd
  *
  * Xibo - Digital Signage - http://www.xibo.org.uk
@@ -308,6 +308,7 @@ namespace XiboClient.Rendering
 
             // Parse the regions
             int maxLayer = 0;
+            int regionOrder = 0;
             foreach (XmlNode region in listRegions)
             {
                 // Is there any media
@@ -498,17 +499,21 @@ namespace XiboClient.Rendering
                 temp.OnRegionStopped += Region_OnRegionStopped;
                 temp.TriggerWebhookEvent += Region_TriggerWebhookEvent;
 
-                // ZIndex
+                // ZIndex. If omitted, treat as 0.
                 try
                 {
-                    temp.ZIndex = int.Parse(XmlHelper.GetAttrib(region, "zindex", "0"));
+                    string zIndex = XmlHelper.GetAttrib(region, "zindex", "");
+                    temp.ZIndex = string.IsNullOrWhiteSpace(zIndex)
+                        ? 0
+                        : int.Parse(zIndex);
                 }
                 catch
                 {
-                    // Use the ordering of this region as the z-index
-                    temp.ZIndex = maxLayer + 1;
+                    // If parsing fails, default to 0.
+                    temp.ZIndex = 0;
                 }
                 maxLayer = Math.Max(temp.ZIndex, maxLayer);
+                temp.ZIndex = (temp.ZIndex * 1000) + regionOrder++;
 
                 Debug.WriteLine("loadFromFile: Created new region", "Layout");
 
@@ -531,6 +536,7 @@ namespace XiboClient.Rendering
             foreach (Region temp in _regions)
             {
                 // Add this Region to our Scene
+                Panel.SetZIndex(temp, temp.ZIndex);
                 LayoutScene.Children.Add(temp);
             }
 

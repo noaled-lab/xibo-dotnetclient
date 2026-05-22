@@ -36,7 +36,8 @@ namespace XiboClient.Logic
             using (Process curProcess = Process.GetCurrentProcess())
             using (ProcessModule curModule = curProcess.MainModule)
             {
-                return SetWindowsHookEx(WH_MOUSE_LL, _proc, GetModuleHandle(curModule.ModuleName), 0);
+                _hookID = SetWindowsHookEx(WH_MOUSE_LL, _proc, GetModuleHandle(curModule.ModuleName), 0);
+                return _hookID;
             }
         }
 
@@ -45,7 +46,11 @@ namespace XiboClient.Logic
         /// </summary>
         public static void UnsetHook()
         {
-            UnhookWindowsHookEx(_hookID);
+            if (_hookID != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(_hookID);
+                _hookID = IntPtr.Zero;
+            }
         }
 
         /// <summary>

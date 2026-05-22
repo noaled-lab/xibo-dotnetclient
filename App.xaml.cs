@@ -21,8 +21,8 @@ namespace XiboClient
                            ErrorModes.SEM_NOOPENFILEERRORBOX);
 
 
-            // Ensure our process has the highest priority
-            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.RealTime;
+            // Keep the player responsive without starving system input during startup/shutdown.
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
 
 #if !DEBUG
             // Catch unhandled exceptions

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -14,6 +14,7 @@
     <WarningLevel>4</WarningLevel>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <RuntimeIdentifiers>win;win-x86;win-x64</RuntimeIdentifiers>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
   </PropertyGroup>
@@ -63,6 +64,29 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
   </PropertyGroup>
   <PropertyGroup>
@@ -169,8 +193,10 @@
     <Compile Include="Rendering\Audio.cs" />
     <Compile Include="Rendering\Flash.cs" />
     <Compile Include="Rendering\LibMpv.cs" />
-    <Compile Include="Rendering\MpvHost.cs" />
+    <Compile Include="Rendering\MpvHwndHost.cs" />
+    <Compile Include="Rendering\NativeZOrderManager.cs" />
     <Compile Include="Rendering\Image.cs" />
+    <Compile Include="Rendering\ImageHwnd.cs" />
     <Compile Include="Rendering\Media.xaml.cs">
       <DependentUpon>Media.xaml</DependentUpon>
     </Compile>
@@ -178,9 +204,8 @@
     <Compile Include="Rendering\ShellCommand.cs" />
     <Compile Include="Rendering\Spacer.cs" />
     <Compile Include="Rendering\Video.cs" />
-    <Compile Include="Rendering\VideoMpv.cs" />
+    <Compile Include="Rendering\VideoHwnd.cs" />
     <Compile Include="Rendering\WebCef.cs" />
-    <Compile Include="Rendering\WebEdge.cs" />
     <Compile Include="Rendering\WebIe.cs" />
     <Compile Include="Rendering\WebMedia.cs" />
     <Compile Include="Log\XiboTraceListener.cs" />
@@ -313,7 +338,7 @@
       <Version>2.5.1</Version>
     </PackageReference>
     <PackageReference Include="CefSharp.Wpf">
-      <Version>134.3.90</Version>
+      <Version>138.0.340</Version>
     </PackageReference>
     <PackageReference Include="Crc32.NET">
       <Version>1.2.0</Version>
@@ -342,9 +367,7 @@
     <PackageReference Include="Microsoft.SqlServer.Types">
       <Version>160.1000.6</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.Web.WebView2">
-      <Version>1.0.3124.44</Version>
-    </PackageReference>
+
     <PackageReference Include="NetMQ">
       <Version>4.0.1.13</Version>
     </PackageReference>

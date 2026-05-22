@@ -40,14 +40,18 @@ namespace XiboClient.Logic
             {
                 using (ProcessModule curModule = curProcess.MainModule)
                 {
-                    SetWindowsHookEx(WH_KEYBOARD_LL, _proc, GetModuleHandle(curModule.ModuleName), 0);
+                    _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, GetModuleHandle(curModule.ModuleName), 0);
                 }
             }
         }
 
         public static void UnsetHook()
         {
-            UnhookWindowsHookEx(_hookId);
+            if (_hookId != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(_hookId);
+                _hookId = IntPtr.Zero;
+            }
         }
 
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);

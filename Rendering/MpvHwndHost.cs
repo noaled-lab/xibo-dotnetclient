@@ -19,6 +19,7 @@
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  */
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -29,10 +30,10 @@ using System.Windows.Threading;
 namespace XiboClient.Rendering
 {
     /// <summary>
-    /// WPF HwndHost를 상속해 mpv 플레이어를 Win32 자식 창으로 임베드하는 컨트롤.
-    /// WM_ERASEBKGND를 검정으로 처리해 창 초기화 시 흰색 플래시를 방지한다.
+    /// WPF HwndHost????속??mpv ??레??어??Win32 ??식 창으????베??하??컨트??
+    /// WM_ERASEBKGND??검??으??처리????초기??????색 ??래???? 방????다.
     /// </summary>
-    internal class MpvHost : HwndHost
+    internal class MpvHwndHost : HwndHost, INativeZIndexHost
     {
         // Runtime-configurable guard to hide/show the host window around VO init.
         private readonly bool _useWindowTimingGuard;
@@ -41,6 +42,11 @@ namespace XiboClient.Rendering
         private const int WS_VISIBLE  = 0x10000000;
         private const int WS_CLIPCHILDREN = 0x02000000;
         private const int WS_CLIPSIBLINGS = 0x04000000;
+        private const int WS_EX_LAYERED = 0x00080000;
+        private const int LWA_COLORKEY = 0x00000001;
+
+        [DllImport("user32.dll")]
+        private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr CreateWindowEx(
@@ -64,9 +70,26 @@ namespace XiboClient.Rendering
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         private const int SW_SHOW = 5;
+        private const int SW_SHOWNA = 8;
         private const int SW_HIDE = 0;
 
-        // 흰색/회색 플래시 방지
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(
+            IntPtr hWnd, IntPtr hWndInsertAfter,
+            int x, int y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_NOOWNERZORDER = 0x0200;
+
+        // ??색/??색 ??래??방??
         private const int BLACK_BRUSH = 4;
         private const int WM_ERASEBKGND = 0x0014;
         private const int WM_PAINT = 0x000F;
@@ -102,11 +125,18 @@ namespace XiboClient.Rendering
         public event System.Action<string> MediaFailed;
         public event System.Action<int> EndFile;
 
-        // VIDEO_RECONFIG 전까지 WM_PAINT를 검정으로 처리해 회색 플래시 방지
+        // VIDEO_RECONFIG ??까지 WM_PAINT??검??으??처리????색 ??래??방??
         private volatile bool _videoReady = false;
+
+        public IntPtr Hwnd => _hwndHost;
+        public int NativeZIndex => _nativeZIndex;
+        public long HostSequenceCounter => _hostSequence;
+        public bool IsDisposed => _disposed;
 
         private IntPtr _mpvHandle = IntPtr.Zero;
         private IntPtr _hwndHost = IntPtr.Zero;
+        private int _nativeZIndex;
+        private long _hostSequence;
         private Thread _eventThread;
         private volatile bool _disposed = false;
         private readonly Dispatcher _dispatcher;
@@ -114,11 +144,12 @@ namespace XiboClient.Rendering
         private LibMpv.MpvWakeupCallback _wakeupCallback;
         private readonly AutoResetEvent _wakeupEvent = new AutoResetEvent(false);
 
-        // BuildWindowCore 이전에 Load/SetVolume 등이 호출된 경우를 위한 대기 값
+        // BuildWindowCore ??전??Load/SetVolume ??이 ??출??경우????한 ??????
         private string _pendingFilePath;
         private bool? _pendingStretch;
         private int? _pendingVolume;
         private bool? _pendingMute;
+        private bool? _pendingPause;
 
         [StructLayout(LayoutKind.Sequential)]
         struct mpv_event_log_message {
@@ -128,16 +159,18 @@ namespace XiboClient.Rendering
             public int log_level;
         }
 
-        public MpvHost()
+        public MpvHwndHost()
         {
             _dispatcher = Dispatcher.CurrentDispatcher;
             _useWindowTimingGuard = ApplicationSettings.Default.MpvUseTimingGuard;
-            Trace.WriteLine("MpvHost: Constructor", "MpvHost");
+            Trace.WriteLine("MpvHwndHost: Constructor", "MpvHwndHost");
         }
+
+        public bool EnableTransparency { get; set; } = false;
 
         protected override HandleRef BuildWindowCore(HandleRef hwndParent)
         {
-            Trace.WriteLine($"MpvHost: BuildWindowCore. Parent: {hwndParent.Handle}, Size: {Width}x{Height}", "MpvHost");
+            Trace.WriteLine($"MpvHwndHost: BuildWindowCore. Parent: {hwndParent.Handle}, Size: {Width}x{Height}", "MpvHwndHost");
 
             int w = (int)Math.Max(1, Width);
             int h = (int)Math.Max(1, Height);
@@ -148,7 +181,6 @@ namespace XiboClient.Rendering
             if (!_useWindowTimingGuard)
                 style |= WS_VISIBLE;
 
-            // Guard mode: create hidden and reveal on first VIDEO_RECONFIG.
             _hwndHost = CreateWindowEx(
                 0, "STATIC", "",
                 style,
@@ -158,18 +190,36 @@ namespace XiboClient.Rendering
             if (_hwndHost == IntPtr.Zero)
             {
                 int err = Marshal.GetLastWin32Error();
-                Trace.WriteLine($"MpvHost: CreateWindowEx failed with error {err}", "MpvHost");
+                Trace.WriteLine($"MpvHwndHost: CreateWindowEx failed with error {err}", "MpvHwndHost");
                 throw new InvalidOperationException("Failed to create host window for mpv. Error: " + err);
             }
 
             InitMpv(_hwndHost);
+            RegisterHost();
+            SyncHostWindowSize("BuildWindowCore");
+            ApplyNativeZOrder();
 
             return new HandleRef(this, _hwndHost);
         }
 
+        protected override void OnWindowPositionChanged(Rect rcBoundingBox)
+        {
+            base.OnWindowPositionChanged(rcBoundingBox);
+            SyncHostWindowSize("OnWindowPositionChanged");
+            ApplyNativeZOrder();
+        }
+
+        protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+        {
+            base.OnRenderSizeChanged(sizeInfo);
+            SyncHostWindowSize("OnRenderSizeChanged");
+            ApplyNativeZOrder();
+        }
+
         protected override void DestroyWindowCore(HandleRef hwnd)
         {
-            Trace.WriteLine("MpvHost: DestroyWindowCore", "MpvHost");
+            Trace.WriteLine("MpvHwndHost: DestroyWindowCore", "MpvHwndHost");
+            UnregisterHost();
             Shutdown();
             if (hwnd.Handle != IntPtr.Zero)
                 DestroyWindow(hwnd.Handle);
@@ -193,7 +243,7 @@ namespace XiboClient.Rendering
                 return new IntPtr(1);
             }
 
-            // VIDEO_RECONFIG 전까지 WM_PAINT를 검정으로 처리 (mpv GPU 렌더러 초기화 중 회색 플래시 방지)
+            // VIDEO_RECONFIG ??까지 WM_PAINT??검??으??처리 (mpv GPU ??더??초기??????색 ??래??방??)
             if (_useWindowTimingGuard && msg == WM_PAINT && !_videoReady)
             {
                 PAINTSTRUCT ps;
@@ -222,20 +272,20 @@ namespace XiboClient.Rendering
         }
 
         /// <summary>
-        /// mpv 인스턴스를 초기화하고 이벤트 루프 스레드를 시작한다.
-        /// BuildWindowCore에서 호출되므로 이 시점에 hwnd가 유효하다.
+        /// mpv ??스??스??초기??하????벤??루프 ??레???? ??작??다.
+        /// BuildWindowCore??서 ??출??????????점??hwnd가 ??효??다.
         /// </summary>
         private void InitMpv(IntPtr hwnd)
         {
-            Trace.WriteLine("MpvHost: InitMpv starting", "MpvHost");
+            Trace.WriteLine("MpvHwndHost: InitMpv starting", "MpvHwndHost");
 
             int SetOptionStringChecked(string name, string value, bool required = false)
             {
                 int rc = LibMpv.mpv_set_option_string(_mpvHandle, name, value);
                 if (rc < 0)
                 {
-                    string msg = $"MpvHost: mpv_set_option_string failed ({name}={value}) rc={rc}";
-                    Trace.WriteLine(msg, "MpvHost");
+                    string msg = $"MpvHwndHost: mpv_set_option_string failed ({name}={value}) rc={rc}";
+                    Trace.WriteLine(msg, "MpvHwndHost");
                     if (required)
                         throw new InvalidOperationException(msg);
                 }
@@ -246,26 +296,26 @@ namespace XiboClient.Rendering
             if (_mpvHandle == IntPtr.Zero)
                 throw new InvalidOperationException("mpv_create() returned NULL.");
 
-            // 콘솔 출력 비활성화 / 로그는 Trace로만 수집
+            // 콘솔 출력 비활??화 / 로그??Trace로만 ??집
             SetOptionStringChecked("terminal", "no");
             SetOptionStringChecked("msg-level", "all=v");
 
-            // 호스트 창 핸들을 mpv에 전달해 해당 창 안에 렌더링
+            // ??스??????들??mpv????달????당 ????에 ??더??
             long wid = hwnd.ToInt64();
             int widRc = LibMpv.mpv_set_option(_mpvHandle, "wid", LibMpv.MPV_FORMAT_INT64, ref wid);
             if (widRc < 0)
-                throw new InvalidOperationException("MpvHost: mpv_set_option(wid) failed rc=" + widRc);
+                throw new InvalidOperationException("MpvHwndHost: mpv_set_option(wid) failed rc=" + widRc);
 
-            // 키오스크/사이니지용: OSD·입력 비활성화
-            // keep-open=yes: EOF 후에도 마지막 프레임을 유지해 회색 창 방지.
-            // SeekToStart() + Play()로 루프를 구현할 수 있다.
+            // ??오??크/??이?????? OSD·??력 비활??화
+            // keep-open=yes: EOF ??에??마??????레??을 ????????색 ??방??.
+            // SeekToStart() + Play()??루프??구현??????다.
             SetOptionStringChecked("keep-open", "yes", required: true);
             SetOptionStringChecked("osc", "no");
             SetOptionStringChecked("osd-level", "0");
             SetOptionStringChecked("input-default-bindings", "no");
             SetOptionStringChecked("input-vo-keyboard", "no");
 
-            // vo / hwdec: Player Options의 MPV 탭에서 설정한 값 사용
+            // vo / hwdec: Player Options??MPV ????????정??????용
             string vo = ApplicationSettings.Default.MpvVo;
             if (string.IsNullOrWhiteSpace(vo)) vo = "direct3d";
             SetOptionStringChecked("vo", vo, required: true);
@@ -274,11 +324,11 @@ namespace XiboClient.Rendering
             if (string.IsNullOrWhiteSpace(hwdec)) hwdec = "auto-safe";
             SetOptionStringChecked("hwdec", hwdec);
 
-            // 배경 옵션은 mode/background-color로 분리되어 있어 둘 다 지정해야 한다.
+            // 배경 ??션?? mode/background-color??분리??어 ??어 ????지??해????다.
             SetOptionStringChecked("background", "color");
             SetOptionStringChecked("background-color", "#000000");
 
-            // 추가 옵션: "key=value" 한 줄씩
+            // 추?? ??션: "key=value" ??줄씩
             string extra = ApplicationSettings.Default.MpvExtraOptions;
             if (!string.IsNullOrWhiteSpace(extra))
             {
@@ -298,11 +348,11 @@ namespace XiboClient.Rendering
             int initRc = LibMpv.mpv_initialize(_mpvHandle);
             if (initRc < 0)
             {
-                Trace.WriteLine($"MpvHost: mpv_initialize failed: {initRc}", "MpvHost");
+                Trace.WriteLine($"MpvHwndHost: mpv_initialize failed: {initRc}", "MpvHwndHost");
                 throw new InvalidOperationException("mpv_initialize() failed: " + initRc);
             }
 
-            Trace.WriteLine("MpvHost: mpv_initialize success", "MpvHost");
+            Trace.WriteLine("MpvHwndHost: mpv_initialize success", "MpvHwndHost");
 
             // Request events
             LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_LOG_MESSAGE, 1);
@@ -311,7 +361,7 @@ namespace XiboClient.Rendering
             LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_END_FILE, 1);
             LibMpv.mpv_request_event(_mpvHandle, LibMpv.MPV_EVENT_VIDEO_RECONFIG, 1);
 
-            // keep-open=yes 상태에서 EOF를 감지하기 위해 eof-reached 프로퍼티 감시
+            // keep-open=yes ??태??서 EOF??감????기 ??해 eof-reached ??로??티 감시
             LibMpv.mpv_observe_property(_mpvHandle, 1, "eof-reached", LibMpv.MPV_FORMAT_FLAG);
 
             _wakeupCallback = OnWakeup;
@@ -323,13 +373,14 @@ namespace XiboClient.Rendering
             if (_pendingStretch.HasValue) SetStretch(_pendingStretch.Value);
             if (_pendingVolume.HasValue) SetVolume(_pendingVolume.Value);
             if (_pendingMute.HasValue) SetMute(_pendingMute.Value);
+            if (_pendingPause.HasValue) SetPause(_pendingPause.Value);
 
             // Load pending file if any
             if (!string.IsNullOrEmpty(_pendingFilePath))
             {
                 string path = _pendingFilePath;
                 _pendingFilePath = null;
-                Trace.WriteLine($"MpvHost: Loading pending file {path}", "MpvHost");
+                Trace.WriteLine($"MpvHwndHost: Loading pending file {path}", "MpvHwndHost");
                 Load(path);
             }
         }
@@ -363,29 +414,36 @@ namespace XiboClient.Rendering
                                 var log = Marshal.PtrToStructure<mpv_event_log_message>(ev.data);
                                 string prefix = Marshal.PtrToStringAnsi(log.prefix);
                                 string text = Marshal.PtrToStringAnsi(log.text);
-                                Trace.WriteLine($"[mpv:{prefix}] {text.Trim()}", "MpvHost");
+                                Trace.WriteLine($"[mpv:{prefix}] {text.Trim()}", "MpvHwndHost");
                             }
                             break;
 
                         case LibMpv.MPV_EVENT_START_FILE:
-                            Trace.WriteLine("MpvHost: Event START_FILE", "MpvHost");
+                            Trace.WriteLine("MpvHwndHost: Event START_FILE", "MpvHwndHost");
                             break;
 
                         case LibMpv.MPV_EVENT_FILE_LOADED:
-                            Trace.WriteLine("MpvHost: Event FILE_LOADED", "MpvHost");
+                            Trace.WriteLine("MpvHwndHost: Event FILE_LOADED", "MpvHwndHost");
                             _dispatcher.BeginInvoke(new System.Action(() => FileLoaded?.Invoke()));
                             break;
 
                         case LibMpv.MPV_EVENT_VIDEO_RECONFIG:
-                            Trace.WriteLine("MpvHost: Event VIDEO_RECONFIG", "MpvHost");
-                            if (!_videoReady)
+                            Trace.WriteLine("MpvHwndHost: Event VIDEO_RECONFIG", "MpvHwndHost");
+                            _dispatcher.BeginInvoke(new System.Action(() =>
                             {
-                                _videoReady = true;
-                                // 첫 VIDEO_RECONFIG: VO 구성 완료. 창을 표시해 회색 플래시 방지
-                                if (_useWindowTimingGuard && _hwndHost != IntPtr.Zero)
-                                    ShowWindow(_hwndHost, SW_SHOW);
-                            }
-                            _dispatcher.BeginInvoke(new System.Action(() => VideoReconfig?.Invoke()));
+                                SyncHostWindowSize("VIDEO_RECONFIG");
+
+                                if (!_videoReady)
+                                {
+                                    _videoReady = true;
+                                    // ??VIDEO_RECONFIG: VO 구성 ??료. 창을 ??시????색 ??래??방??
+                                    if (_useWindowTimingGuard && _hwndHost != IntPtr.Zero)
+                                        ShowWindow(_hwndHost, SW_SHOWNA);
+                                }
+
+                                ApplyNativeZOrder();
+                                VideoReconfig?.Invoke();
+                            }));
                             break;
 
                         case LibMpv.MPV_EVENT_PROPERTY_CHANGE:
@@ -395,7 +453,7 @@ namespace XiboClient.Rendering
                                 if (prop.name == "eof-reached" && prop.format == LibMpv.MPV_FORMAT_FLAG && prop.data != IntPtr.Zero)
                                 {
                                     int flag = Marshal.ReadInt32(prop.data);
-                                    Trace.WriteLine($"MpvHost: eof-reached={flag}", "MpvHost");
+                                    Trace.WriteLine($"MpvHwndHost: eof-reached={flag}", "MpvHwndHost");
                                     if (flag == 1)
                                     {
                                         _dispatcher.BeginInvoke(new System.Action(() =>
@@ -411,7 +469,7 @@ namespace XiboClient.Rendering
                                 var endData = Marshal.PtrToStructure<LibMpv.mpv_event_end_file>(ev.data);
                                 int reason = endData.reason;
                                 int error  = endData.error;
-                                Trace.WriteLine($"MpvHost: Event END_FILE. reason={reason}, error={error}", "MpvHost");
+                                Trace.WriteLine($"MpvHwndHost: Event END_FILE. reason={reason}, error={error}", "MpvHwndHost");
 
                                 _dispatcher.BeginInvoke(new System.Action(() =>
                                 {
@@ -427,7 +485,7 @@ namespace XiboClient.Rendering
                             return;
 
                         default:
-                            Trace.WriteLine($"MpvHost: Event id={ev.event_id} (unhandled)", "MpvHost");
+                            Trace.WriteLine($"MpvHwndHost: Event id={ev.event_id} (unhandled)", "MpvHwndHost");
                             break;
                     }
                 }
@@ -438,33 +496,91 @@ namespace XiboClient.Rendering
         {
             if (_mpvHandle == IntPtr.Zero)
             {
-                Trace.WriteLine($"MpvHost: Load called but handle null. Storing pending path: {filePath}", "MpvHost");
+                Trace.WriteLine($"MpvHwndHost: Load called but handle null. Storing pending path: {filePath}", "MpvHwndHost");
                 _pendingFilePath = filePath;
                 return;
             }
 
             _videoReady = false;
-            // 다음 파일 로드 시 창을 다시 숨겨 회색 플래시 방지 (VIDEO_RECONFIG에서 다시 표시됨)
+            // ??음 ??일 로드 ??창을 ??시 ??겨 ??색 ??래??방?? (VIDEO_RECONFIG??서 ??시 ??시??
             if (_useWindowTimingGuard && _hwndHost != IntPtr.Zero)
                 ShowWindow(_hwndHost, SW_HIDE);
-            Trace.WriteLine($"MpvHost: Load {filePath}", "MpvHost");
+            SyncHostWindowSize("Load");
+            ApplyNativeZOrder();
+            Trace.WriteLine($"MpvHwndHost: Load {filePath}", "MpvHwndHost");
             LibMpv.Command(_mpvHandle, "loadfile", filePath);
+        }
+
+        public void SetNativeZIndex(int nativeZIndex)
+        {
+            _nativeZIndex = nativeZIndex;
+            ApplyNativeZOrder();
+        }
+
+        public void ApplyNativeZOrder()
+        {
+            NativeZOrderManager.ApplyAll(_dispatcher);
+        }
+
+        private void RegisterHost()
+        {
+            _hostSequence = NativeZOrderManager.GetNextSequence();
+            NativeZOrderManager.Register(this);
+        }
+
+        private void UnregisterHost()
+        {
+            NativeZOrderManager.Unregister(this);
+        }
+
+        private void SyncHostWindowSize(string reason)
+        {
+            if (_hwndHost == IntPtr.Zero || _disposed)
+                return;
+
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.BeginInvoke(new System.Action(() => SyncHostWindowSize(reason)));
+                return;
+            }
+
+            int w = (int)Math.Max(1, Math.Round(ActualWidth > 0 ? ActualWidth : Width));
+            int h = (int)Math.Max(1, Math.Round(ActualHeight > 0 ? ActualHeight : Height));
+
+            bool ok = SetWindowPos(
+                _hwndHost,
+                IntPtr.Zero,
+                0,
+                0,
+                w,
+                h,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+
+            if (!ok)
+            {
+                int err = Marshal.GetLastWin32Error();
+                Trace.WriteLine($"MpvHwndHost: SyncHostWindowSize({reason}) failed. size={w}x{h}, error={err}", "MpvHwndHost");
+                return;
+            }
+
+            InvalidateRect(_hwndHost, IntPtr.Zero, false);
+            Trace.WriteLine($"MpvHwndHost: SyncHostWindowSize({reason}) size={w}x{h}", "MpvHwndHost");
         }
 
         public void SeekAbsolute(double seconds)
         {
             if (_mpvHandle == IntPtr.Zero)
             {
-                Trace.WriteLine($"MpvHost: SeekAbsolute({seconds}) – handle is null, skipping", "MpvHost");
+                Trace.WriteLine($"MpvHwndHost: SeekAbsolute({seconds}) ??handle is null, skipping", "MpvHwndHost");
                 return;
             }
             int rc = LibMpv.Command(_mpvHandle, "seek", seconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture), "absolute");
-            Trace.WriteLine($"MpvHost: SeekAbsolute({seconds}) rc={rc}", "MpvHost");
+            Trace.WriteLine($"MpvHwndHost: SeekAbsolute({seconds}) rc={rc}", "MpvHwndHost");
         }
 
         public void SeekToStart()
         {
-            Trace.WriteLine("MpvHost: SeekToStart()", "MpvHost");
+            Trace.WriteLine("MpvHwndHost: SeekToStart()", "MpvHwndHost");
             SeekAbsolute(0);
         }
 
@@ -472,7 +588,19 @@ namespace XiboClient.Rendering
         {
             if (_mpvHandle == IntPtr.Zero) return;
             int rc = LibMpv.Command(_mpvHandle, "set", "pause", "no");
-            Trace.WriteLine($"MpvHost: Play() rc={rc}", "MpvHost");
+            Trace.WriteLine($"MpvHwndHost: Play() rc={rc}", "MpvHwndHost");
+        }
+
+        public void SetPause(bool paused)
+        {
+            if (_mpvHandle == IntPtr.Zero)
+            {
+                _pendingPause = paused;
+                return;
+            }
+
+            int rc = LibMpv.Command(_mpvHandle, "set", "pause", paused ? "yes" : "no");
+            Trace.WriteLine($"MpvHwndHost: SetPause({paused}) rc={rc}", "MpvHwndHost");
         }
 
         public void SetVolume(int volume)
@@ -527,6 +655,7 @@ namespace XiboClient.Rendering
         {
             if (_disposed) return;
             _disposed = true;
+            UnregisterHost();
 
             _wakeupEvent.Set();
 
@@ -536,7 +665,7 @@ namespace XiboClient.Rendering
                 try { LibMpv.mpv_terminate_destroy(handle); }
                 catch (Exception ex)
                 {
-                    Trace.WriteLine(new LogMessage("MpvHost", "Shutdown: " + ex.Message), LogType.Error.ToString());
+                    Trace.WriteLine(new LogMessage("MpvHwndHost", "Shutdown: " + ex.Message), LogType.Error.ToString());
                 }
             }
 
@@ -544,3 +673,4 @@ namespace XiboClient.Rendering
         }
     }
 }
+

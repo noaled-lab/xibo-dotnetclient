@@ -648,10 +648,10 @@ namespace XiboClient.Rendering
         /// <param name="options"></param>
         /// <returns></returns>
         /// <summary>
-        /// 설정된 영상 렌더링 엔진이 libmpv인지 확인.
-        /// OptionsForm의 Video Engine 드롭다운 선택값을 기준으로 판단.
+        /// ?�정???�상 ?�더�??�진??libmpv?��? ?�인.
+        /// OptionsForm??Video Engine ?�롭?�운 ?�택값을 기�??�로 ?�단.
         /// </summary>
-        /// <returns>libmpv 엔진이 선택된 경우 true, WindowsMediaPlayer인 경우 false</returns>
+        /// <returns>libmpv ?�진???�택??경우 true, WindowsMediaPlayer??경우 false</returns>
         private static bool IsLibMpv()
         {
             return string.Equals(ApplicationSettings.Default.VideoRenderingEngine, "libmpv", StringComparison.OrdinalIgnoreCase);
@@ -664,7 +664,10 @@ namespace XiboClient.Rendering
             {
                 case "image":
                     options.uri = ApplicationSettings.Default.LibraryPath + @"\" + options.uri;
-                    media = new Image(options);
+                    if (IsLibMpv())
+                        media = new ImageHwnd(options);
+                    else
+                        media = new Image(options);
                     break;
 
                 case "powerpoint":
@@ -674,18 +677,18 @@ namespace XiboClient.Rendering
 
                 case "video":
                     options.uri = ApplicationSettings.Default.LibraryPath + @"\" + options.uri;
-                    // libmpv 엔진이면 VideoMpv, 아니면 기존 WPF MediaElement 기반 Video 사용
+                    // libmpv ?�진?�면 VideoHwnd, ?�니�?기존 WPF MediaElement 기반 Video ?�용
                     if (IsLibMpv())
-                        media = new VideoMpv(options);
+                        media = new VideoHwnd(options);
                     else
                         media = new Video(options);
                     break;
 
                 case "localvideo":
                     // Local video does not update the URI with the library path, it just takes what has been provided in the Widget.
-                    // libmpv 엔진이면 VideoMpv, 아니면 기존 WPF MediaElement 기반 Video 사용
+                    // libmpv ?�진?�면 VideoHwnd, ?�니�?기존 WPF MediaElement 기반 Video ?�용
                     if (IsLibMpv())
-                        media = new VideoMpv(options);
+                        media = new VideoHwnd(options);
                     else
                         media = new Video(options);
                     break;
@@ -731,7 +734,7 @@ namespace XiboClient.Rendering
                     break;
 
                 case "hls":
-                    media = new WebEdge(options);
+                    media = new WebCef(options);
                     break;
 
                 default:
@@ -1072,5 +1075,18 @@ namespace XiboClient.Rendering
         {
             AdspaceExchangeErrorUrls = urls;
         }
+
+        public int NativeZIndex { get; set; }
+
+        public virtual void ApplyNativeZOrder() { }
+
+        public bool IsHwndEngine()
+        {
+            return ApplicationSettings.Default.VideoRenderingEngine == "hwnd";
+        }
     }
 }
+
+
+
+

@@ -95,15 +95,23 @@ namespace XiboClient
             // Appearance Tab
             textBoxSplashScreenReplacement.Text = ApplicationSettings.Default.SplashOverride;
 
-            // Video Engine 드롭다운 초기화: 설정값이 없으면 libmpv를 기본값으로 선택
+            // Video Engine ?�롭?�운 초기?? ?�정값이 ?�으�?libmpv�?기본값으�??�택
             comboBoxVideoEngine.Items.Add("WindowsMediaPlayer");
-            comboBoxVideoEngine.Items.Add("libmpv");
+            comboBoxVideoEngine.Items.Add("hwnd");
             comboBoxVideoEngine.SelectedItem = string.IsNullOrEmpty(ApplicationSettings.Default.VideoRenderingEngine)
-                ? "libmpv"
+                ? "hwnd"
                 : ApplicationSettings.Default.VideoRenderingEngine;
             comboBoxVideoEngine.SelectionChanged += ComboBoxVideoEngine_SelectionChanged;
 
-            // MPV 탭 초기화
+            comboBoxLogLevel.Items.Add("off");
+            comboBoxLogLevel.Items.Add("error");
+            comboBoxLogLevel.Items.Add("info");
+            comboBoxLogLevel.Items.Add("audit");
+            comboBoxLogLevel.SelectedItem = string.IsNullOrEmpty(ApplicationSettings.Default.LogLevel)
+                ? "error"
+                : ApplicationSettings.Default.LogLevel;
+
+            // MPV ??초기??
             comboBoxMpvVo.Items.Add("direct3d");
             comboBoxMpvVo.Items.Add("gpu");
             comboBoxMpvVo.Items.Add("gpu-next");
@@ -233,10 +241,11 @@ namespace XiboClient
 
                 // Client settings
                 ApplicationSettings.Default.SplashOverride = textBoxSplashScreenReplacement.Text;
-                // 선택된 Video Engine을 설정에 저장 (null인 경우 libmpv로 폴백)
-                ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "libmpv";
+                // ?�택??Video Engine???�정???�??(null??경우 libmpv�??�백)
+                ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "hwnd";
+                ApplicationSettings.Default.LogLevel = comboBoxLogLevel.SelectedItem?.ToString() ?? "error";
 
-                // MPV 옵션 저장
+                // MPV ?�션 ?�??
                 ApplicationSettings.Default.MpvVo = comboBoxMpvVo.SelectedItem?.ToString() ?? "direct3d";
                 ApplicationSettings.Default.MpvHwdec = comboBoxMpvHwdec.SelectedItem?.ToString() ?? "auto-safe";
                 ApplicationSettings.Default.MpvUseTimingGuard = checkBoxMpvTimingGuard.IsChecked == true;
@@ -369,9 +378,10 @@ namespace XiboClient
 
             // Client settings
             ApplicationSettings.Default.SplashOverride = textBoxSplashScreenReplacement.Text;
-            ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "libmpv";
+            ApplicationSettings.Default.VideoRenderingEngine = comboBoxVideoEngine.SelectedItem?.ToString() ?? "hwnd";
+            ApplicationSettings.Default.LogLevel = comboBoxLogLevel.SelectedItem?.ToString() ?? "error";
 
-            // MPV 옵션 저장
+            // MPV ?�션 ?�??
             ApplicationSettings.Default.MpvVo = comboBoxMpvVo.SelectedItem?.ToString() ?? "direct3d";
             ApplicationSettings.Default.MpvHwdec = comboBoxMpvHwdec.SelectedItem?.ToString() ?? "auto-safe";
             ApplicationSettings.Default.MpvUseTimingGuard = checkBoxMpvTimingGuard.IsChecked == true;
@@ -538,7 +548,7 @@ namespace XiboClient
 
         private void UpdateMpvTabEnabled()
         {
-            bool isMpv = comboBoxVideoEngine.SelectedItem?.ToString() == "libmpv";
+            bool isMpv = comboBoxVideoEngine.SelectedItem?.ToString() == "hwnd";
             tabItemMpv.IsEnabled = isMpv;
             if (!isMpv && tabItemMpv.IsSelected)
                 tabItemMpv.IsSelected = false;

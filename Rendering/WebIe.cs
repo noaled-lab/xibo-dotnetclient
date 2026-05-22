@@ -141,6 +141,12 @@ namespace XiboClient.Rendering
         {
             HtmlUpdatedEvent -= IeWebMedia_HtmlUpdatedEvent;
             this._webBrowser.Navigated -= _webBrowser_Navigated;
+
+            // Navigate to blank before Dispose — kills any pending JS timers/callbacks
+            // in the IE COM STA apartment, preventing RPC_E_DISCONNECTED when COM is
+            // released while YouTube IFrame API callbacks are still queued.
+            try { _webBrowser.Navigate("about:blank"); } catch { }
+
             this._webBrowser.Dispose();
 
             base.Stopped();

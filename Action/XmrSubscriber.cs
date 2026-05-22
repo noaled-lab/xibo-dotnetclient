@@ -198,6 +198,10 @@ namespace XiboClient.Action
                 return;
             }
 
+            // Log incoming non-heartbeat messages in the same frame format used for failures.
+            string frameLog = BuildFrameLog(message, _hardwareKey, rsaKey);
+            Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Incoming Message: " + frameLog), LogType.Audit.ToString());
+
             // Decrypt the message
             string opened;
             try
@@ -206,7 +210,9 @@ namespace XiboClient.Action
             }
             catch (Exception e)
             {
-                Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Unopenable Message: " + e.Message), LogType.Error.ToString());
+                Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", "Unopenable Message: " + e.Message
+                    + " rsaKeyType=" + (rsaKey?.Private?.GetType()?.Name ?? "null")
+                    + " " + frameLog), LogType.Error.ToString());
                 Trace.WriteLine(new LogMessage("XmrSubscriber - processMessage", e.ToString()), LogType.Audit.ToString());
                 return;
             }
@@ -288,6 +294,55 @@ namespace XiboClient.Action
                     Trace.WriteLine(new LogMessage("XmrSubscriber - Run", "Unknown Message: " + action.action), LogType.Info.ToString());
                     break;
             }
+        }
+
+        private static string BuildFrameLog(NetMQMessage message, HardwareKey hardwareKey, AsymmetricCipherKeyPair rsaKey)
+        {
+            string topic;
+            try
+            {
+                topic = message[0].ConvertToString();
+            }
+            catch
+            {
+                topic = "<unreadable>";
+            }
+
+            string channel = "<null>";
+            try
+            {
+                channel = hardwareKey?.Channel ?? "<null>";
+            }
+            catch
+            {
+                channel = "<error>";
+            }
+
+            string publicKeyFingerprint = "<null>";
+            try
+            {
+                string publicKey = hardwareKey?.getXmrPublicKey();
+                publicKeyFingerprint = string.IsNullOrEmpty(publicKey)
+                    ? "<empty>"
+                    : Hashes.MD5(publicKey);
+            }
+            catch
+            {
+                publicKeyFingerprint = "<error>";
+            }
+
+            System.Text.StringBuilder frameLog = new System.Text.StringBuilder();
+            frameLog.Append("topic=" + topic);
+            frameLog.Append(" channel=" + channel);
+            frameLog.Append(" pubKeyMd5=" + publicKeyFingerprint);
+            frameLog.Append(" rsaKeyType=" + (rsaKey?.Private?.GetType()?.Name ?? "null"));
+            frameLog.Append(" frameCount=" + message.FrameCount);
+            for (int i = 0; i < message.FrameCount; i++)
+            {
+                frameLog.Append(" frame[" + i + "](bytes=" + message[i].MessageSize + ")=" + Convert.ToBase64String(message[i].ToByteArray()));
+            }
+
+            return frameLog.ToString();
         }
 
         /// <summary>
