@@ -462,7 +462,7 @@ namespace XiboClient
                         string.Format("ScheduleChangeEvent: Schedule Changing to Schedule {0}, Layout {1}", nextLayout.scheduleid, nextLayout.id)), LogType.Audit.ToString());
 
                 // Issue a change to the next Layout
-                Dispatcher.Invoke(new Action<ScheduleItem>(ChangeToNextLayout), nextLayout);
+                Dispatcher.BeginInvoke(new Action<ScheduleItem>(ChangeToNextLayout), nextLayout);
             }
         }
 
